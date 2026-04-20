@@ -124,5 +124,8 @@ window.addEventListener('load', () => {
   const user = JSON.parse(localStorage.getItem('user'));
   if (token && user) {
     enterApp(user);
+  } else {
+    // S'assurer que la navbar est cachée
+    document.getElementById('navbar').classList.add('hidden');
   }
 });
