@@ -1,4 +1,4 @@
-const API_URL = 'https://titu-games2.onrender.com';
+const API_URL = 'https://titu-games2.onrender.com/api';
 
 // ===== SWITCH TABS LOGIN / REGISTER =====
 function switchTab(tab) {
