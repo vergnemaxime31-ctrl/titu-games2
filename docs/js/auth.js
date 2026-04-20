@@ -27,7 +27,7 @@ function switchTab(tab) {
 
 // ===== LOGIN =====
 async function login() {
-  const username = document.getElementById('login-email').value.trim();
+  const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value.trim();
   const errorEl = document.getElementById('auth-error');
 
