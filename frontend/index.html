@@ -4,190 +4,127 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BetApp</title>
-  <style>
-    :root {
-      --bg: #000;
-      --bg-card: #1e1e1e;
-      --bg-btn: #3a3a3a;
-      --text: #fff;
-      --text-muted: #888;
-      --green: #4caf50;
-      --red: #f44336;
-      --orange: #ff9800;
-      --gold: #ffc107;
-      --border: #333;
-      --radius: 12px;
-      --navbar-h: 70px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 430px; margin: 0 auto; min-height: 100vh; }
-
-    /* PAGES */
-    .page { display: none; padding: 24px 16px calc(var(--navbar-h) + 16px); animation: fadeIn .2s ease; }
-    .page.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* NAVBAR */
-    nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #111; border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; height: var(--navbar-h); z-index: 100; }
-    nav .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 8px 12px; color: var(--text-muted); font-size: 11px; transition: color .2s; }
-    nav .nav-item .icon { font-size: 22px; }
-    nav .nav-item.active { color: var(--text); font-weight: 700; }
-
-    /* TYPO */
-    h1 { font-size: 26px; font-weight: 700; }
-    h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
-    .muted { color: var(--text-muted); font-size: 14px; }
-    .gold { color: var(--gold); }
-    .green { color: var(--green); }
-    .red { color: var(--red); }
-    .orange { color: var(--orange); }
-
-    /* CARD */
-    .card { background: var(--bg-card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-
-    /* HOME header */
-    .home-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
-    .home-header .bell { font-size: 28px; }
-    .home-header .pseudo { font-size: 16px; font-weight: 600; }
-    .home-header .credits { font-size: 22px; font-weight: 700; }
-
-    /* GAME LIST */
-    .game-item { background: var(--bg-card); border-radius: var(--radius); padding: 18px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background .2s; }
-    .game-item:hover { background: #2a2a2a; }
-    .game-item .game-left { display: flex; align-items: center; gap: 14px; font-size: 17px; font-weight: 500; }
-    .game-item .game-icon { font-size: 24px; }
-    .game-item .chevron { color: var(--text-muted); font-size: 18px; }
-
-    /* TOP3 TABLE */
-    .table-wrap { background: var(--bg-card); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
-    .table-wrap table { width: 100%; border-collapse: collapse; }
-    .table-wrap th { padding: 12px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border); }
-    .table-wrap td { padding: 14px; text-align: left; font-size: 15px; border-bottom: 1px solid var(--border); }
-    .table-wrap tr:last-child td { border-bottom: none; }
-    .avatar { width: 36px; height: 36px; border-radius: 50%; background: #555; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-
-    /* BLACKJACK */
-    .bj-header { margin-bottom: 20px; }
-    .bj-section-label { color: var(--text-muted); font-size: 14px; margin-bottom: 10px; }
-    .cards-row { display: flex; gap: 10px; margin-bottom: 6px; }
-    .playing-card { width: 80px; height: 110px; background: var(--bg-card); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; border: 1px solid var(--border); }
-    .playing-card.hidden { color: var(--text-muted); font-size: 28px; }
-    .bj-total { font-size: 16px; margin: 8px 0 20px; }
-    .btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-    .btn { background: var(--bg-btn); color: var(--text); border: none; border-radius: var(--radius); padding: 14px 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s; }
-    .btn:hover { background: #4a4a4a; }
-    .btn.full { grid-column: 1 / -1; }
-    .history-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-card); border-radius: var(--radius); margin-bottom: 8px; font-size: 15px; font-weight: 500; }
-
-    /* SPORTS */
-    .match-card { background: var(--bg-card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-    .match-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
-    .odds-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .odd-btn { background: var(--bg-btn); border: 1.5px solid transparent; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all .2s; }
-    .odd-btn:hover, .odd-btn.selected { border-color: #4a9eff; background: #1a3a5c; }
-    .odd-btn .odd-label { font-size: 16px; font-weight: 700; }
-    .odd-btn .odd-value { font-size: 14px; color: var(--gold); margin-top: 2px; }
-    .bet-item { background: var(--bg-card); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; }
-    .bet-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .bet-item-title { font-size: 15px; font-weight: 600; }
-    .bet-item-sub { font-size: 13px; color: var(--text-muted); }
-    .badge { font-size: 13px; font-weight: 700; }
-    .badge.en-cours { color: var(--orange); }
-    .badge.gagne { color: var(--green); }
-    .badge.perdu { color: var(--red); }
-
-    /* CUSTOM */
-    .custom-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
-    .btn-proposer { background: var(--bg-btn); color: var(--text); border: none; border-radius: var(--radius); padding: 12px 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
-    .custom-card { background: var(--bg-card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
-    .custom-card-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
-    .custom-card-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5; }
-    .custom-card.accepted { opacity: .7; }
-    .btn-accept { background: var(--bg-btn); }
-    .btn-refuse { background: var(--bg-btn); }
-
-    /* TOP */
-    .top-subtitle { color: var(--gold); font-size: 14px; margin-top: 4px; margin-bottom: 24px; }
-    .stats-card { background: var(--bg-card); border-radius: var(--radius); padding: 16px 18px; margin-top: 16px; }
-    .stats-card h2 { margin-bottom: 14px; }
-    .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
-    .stat-row:last-child { border-bottom: none; }
-    .stat-value { font-weight: 700; }
-  </style>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+<div id="app">
+
+<!-- ===== PAGE: AUTH ===== -->
+<div class="page active" id="page-auth">
+  <div style="padding-top: 60px;">
+    <h1 style="text-align:center; margin-bottom: 8px;">BetApp 🎲</h1>
+    <p class="page-header" style="text-align:center; margin-bottom: 40px; color: var(--text-secondary);">Connecte-toi pour jouer</p>
+
+    <!-- Tabs -->
+    <div style="display:flex; background: var(--bg-card); border-radius: var(--border-radius); padding:4px; margin-bottom:24px;">
+      <button id="tab-login" onclick="switchTab('login')" style="flex:1; padding:10px; border:none; border-radius:10px; background: var(--bg-button); color: var(--text-primary); font-weight:700; cursor:pointer;">Connexion</button>
+      <button id="tab-register" onclick="switchTab('register')" style="flex:1; padding:10px; border:none; border-radius:10px; background:transparent; color: var(--text-muted); font-weight:700; cursor:pointer;">Inscription</button>
+    </div>
+
+    <!-- Login -->
+    <div id="form-login">
+      <input id="login-email" type="email" placeholder="Email" style="width:100%; padding:14px; background: var(--bg-card); border:1px solid var(--border-color); border-radius: var(--border-radius); color: var(--text-primary); font-size:15px; margin-bottom:12px;">
+      <input id="login-password" type="password" placeholder="Mot de passe" style="width:100%; padding:14px; background: var(--bg-card); border:1px solid var(--border-color); border-radius: var(--border-radius); color: var(--text-primary); font-size:15px; margin-bottom:20px;">
+      <button onclick="login()" class="btn btn-success" style="width:100%; padding:16px; font-size:16px;">Se connecter</button>
+    </div>
+
+    <!-- Register -->
+    <div id="form-register" style="display:none;">
+      <input id="reg-username" type="text" placeholder="Pseudo" style="width:100%; padding:14px; background: var(--bg-card); border:1px solid var(--border-color); border-radius: var(--border-radius); color: var(--text-primary); font-size:15px; margin-bottom:12px;">
+      <input id="reg-email" type="email" placeholder="Email" style="width:100%; padding:14px; background: var(--bg-card); border:1px solid var(--border-color); border-radius: var(--border-radius); color: var(--text-primary); font-size:15px; margin-bottom:12px;">
+      <input id="reg-password" type="password" placeholder="Mot de passe" style="width:100%; padding:14px; background: var(--bg-card); border:1px solid var(--border-color); border-radius: var(--border-radius); color: var(--text-primary); font-size:15px; margin-bottom:20px;">
+      <button onclick="register()" class="btn btn-success" style="width:100%; padding:16px; font-size:16px;">S'inscrire</button>
+    </div>
+
+    <div id="auth-error" style="color: var(--accent-red); text-align:center; margin-top:16px; font-size:14px;"></div>
+  </div>
+</div>
 
 <!-- ===== PAGE: HOME ===== -->
-<div class="page active" id="page-home">
-  <div class="home-header">
-    <div>
-      <div class="pseudo">Jean</div>
+<div class="page" id="page-home">
+  <div class="user-header">
+    <div class="user-info">
+      <div class="username">Jean</div>
       <div class="credits">1250 crédits</div>
     </div>
-    <div class="bell">🔔</div>
+    <div class="bell-icon">🔔</div>
   </div>
 
-  <h2>Jeux</h2>
+  <div class="section-title">Jeux</div>
   <div class="game-item" onclick="goTo('blackjack')">
-    <div class="game-left"><span class="game-icon">🃏</span> Blackjack</div>
-    <span class="chevron">›</span>
+    <div class="game-item-left"><span class="game-item-icon">🃏</span> Blackjack</div>
+    <span class="game-item-arrow">›</span>
   </div>
   <div class="game-item" onclick="goTo('sports')">
-    <div class="game-left"><span class="game-icon">⚽</span> Paris sportifs</div>
-    <span class="chevron">›</span>
+    <div class="game-item-left"><span class="game-item-icon">⚽</span> Paris sportifs</div>
+    <span class="game-item-arrow">›</span>
   </div>
   <div class="game-item" onclick="goTo('custom')">
-    <div class="game-left"><span class="game-icon">💬</span> Paris personnalisés</div>
-    <span class="chevron">›</span>
+    <div class="game-item-left"><span class="game-item-icon">💬</span> Paris personnalisés</div>
+    <span class="game-item-arrow">›</span>
   </div>
 
-  <h2 style="margin-top:28px;">Top 3</h2>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Rang</th><th>Photo</th><th>Pseudo</th><th>Solde</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>1</td><td><div class="avatar">J</div></td><td>Jean</td><td>3200</td></tr>
-        <tr><td>2</td><td><div class="avatar">P</div></td><td>Pierre</td><td>2800</td></tr>
-        <tr><td>3</td><td><div class="avatar">M</div></td><td>Marie</td><td>2500</td></tr>
-      </tbody>
-    </table>
+  <div class="section-title">Top 3</div>
+  <div class="ranking-table">
+    <div class="ranking-row header">
+      <span>Rang</span><span>Photo</span><span>Pseudo</span><span>Solde</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">1</span>
+      <div class="rank-avatar">J</div>
+      <span class="rank-pseudo">Jean</span>
+      <span class="rank-score">3200</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">2</span>
+      <div class="rank-avatar">P</div>
+      <span class="rank-pseudo">Pierre</span>
+      <span class="rank-score">2800</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">3</span>
+      <div class="rank-avatar">M</div>
+      <span class="rank-pseudo">Marie</span>
+      <span class="rank-score">2500</span>
+    </div>
   </div>
 
-  <h2 style="margin-top:20px;">Derniers paris personnalisés</h2>
+  <div class="section-title">Derniers paris personnalisés</div>
   <div class="card">
-    <div style="font-size:15px;font-weight:500;">Mbappé se marie cet été ? 2 contre 1</div>
-    <div class="muted" style="margin-top:4px;">Proposé par Jean</div>
+    <div style="font-size:15px; font-weight:500;">Mbappé se marie cet été ? 2 contre 1</div>
+    <div style="color: var(--text-secondary); margin-top:4px; font-size:14px;">Proposé par Jean</div>
   </div>
   <div class="card">
-    <div style="font-size:15px;font-weight:500;">PSG gagne la Ligue 1 ? 1.5 contre 1</div>
-    <div class="muted" style="margin-top:4px;">Proposé par Pierre</div>
+    <div style="font-size:15px; font-weight:500;">PSG gagne la Ligue 1 ? 1.5 contre 1</div>
+    <div style="color: var(--text-secondary); margin-top:4px; font-size:14px;">Proposé par Pierre</div>
   </div>
 </div>
 
 <!-- ===== PAGE: BLACKJACK ===== -->
 <div class="page" id="page-blackjack">
-  <div class="bj-header">
+  <div class="page-header">
     <h1>Blackjack</h1>
-    <div class="muted">Solde: 1250 crédits</div>
+    <div class="subtitle">Solde: 1250 crédits</div>
   </div>
 
-  <div class="bj-section-label">Main du croupier</div>
-  <div class="cards-row">
-    <div class="playing-card">A♠</div>
-    <div class="playing-card hidden">?</div>
+  <div class="cards-area">
+    <div class="cards-label">Main du croupier</div>
+    <div class="cards-hand">
+      <div class="playing-card">A♠</div>
+      <div class="playing-card hidden">?</div>
+    </div>
   </div>
 
-  <div class="bj-section-label" style="margin-top:20px;">Votre main</div>
-  <div class="cards-row">
-    <div class="playing-card">K♥</div>
-    <div class="playing-card">7♦</div>
+  <div class="cards-area">
+    <div class="cards-label">Votre main</div>
+    <div class="cards-hand">
+      <div class="playing-card">K♥</div>
+      <div class="playing-card">7♦</div>
+    </div>
+    <div class="card-total">Total : 17</div>
   </div>
-  <div class="bj-total">Total : 17</div>
 
-  <div class="btn-grid-3">
+  <div class="btn-grid">
     <button class="btn">Miser 10</button>
     <button class="btn">Miser 50</button>
     <button class="btn">Tirer</button>
@@ -197,21 +134,32 @@
     <button class="btn">Doubler</button>
   </div>
 
-  <h2>Dernières parties</h2>
-  <div class="history-item"><span>Blackjack !</span><span class="green">+100 crédits</span></div>
-  <div class="history-item"><span>Perdu</span><span class="red">-50 crédits</span></div>
-  <div class="history-item"><span>Gagné</span><span class="green">+30 crédits</span></div>
+  <div class="section-title">Dernières parties</div>
+  <div class="bet-item">
+    <span class="bet-label">Blackjack !</span>
+    <span class="bet-amount positive">+100 crédits</span>
+  </div>
+  <div class="bet-item">
+    <span class="bet-label">Perdu</span>
+    <span class="bet-amount negative">-50 crédits</span>
+  </div>
+  <div class="bet-item">
+    <span class="bet-label">Gagné</span>
+    <span class="bet-amount positive">+30 crédits</span>
+  </div>
 </div>
 
 <!-- ===== PAGE: SPORTS ===== -->
 <div class="page" id="page-sports">
-  <h1>Paris sportifs</h1>
-  <div class="muted" style="margin-bottom:24px;">Solde: 1250 crédits</div>
+  <div class="page-header">
+    <h1>Paris sportifs</h1>
+    <div class="subtitle">Solde: 1250 crédits</div>
+  </div>
 
-  <h2>Matchs disponibles</h2>
+  <div class="section-title">Matchs disponibles</div>
   <div class="match-card">
     <div class="match-title">PSG vs OM</div>
-    <div class="odds-row">
+    <div class="odds-grid">
       <div class="odd-btn selected">
         <div class="odd-label">1</div>
         <div class="odd-value">2.10</div>
@@ -228,7 +176,7 @@
   </div>
   <div class="match-card">
     <div class="match-title">Real Madrid vs Barcelona</div>
-    <div class="odds-row">
+    <div class="odds-grid">
       <div class="odd-btn">
         <div class="odd-label">1</div>
         <div class="odd-value">1.80</div>
@@ -244,83 +192,106 @@
     </div>
   </div>
 
-  <h2 style="margin-top:8px;">Mes paris</h2>
-  <div class="bet-item">
-    <div class="bet-item-header">
-      <span class="bet-item-title">Lyon vs Nice - 1</span>
-      <span class="badge en-cours">En cours</span>
+  <div class="section-title">Mes paris</div>
+  <div class="my-bet-card">
+    <div class="my-bet-header">
+      <span class="my-bet-title">Lyon vs Nice - 1</span>
+      <span class="status-badge en-cours">En cours</span>
     </div>
-    <div class="bet-item-sub">50 crédits · Cote 2.5</div>
+    <div class="my-bet-detail">50 crédits · Cote 2.5</div>
   </div>
-  <div class="bet-item">
-    <div class="bet-item-header">
-      <span class="bet-item-title">Monaco vs Lille - N</span>
-      <span class="badge gagne">Gagné</span>
+  <div class="my-bet-card">
+    <div class="my-bet-header">
+      <span class="my-bet-title">Monaco vs Lille - N</span>
+      <span class="status-badge gagne">Gagné</span>
     </div>
-    <div class="bet-item-sub">100 crédits · Cote 3.0</div>
-    <div class="green" style="margin-top:6px;font-weight:600;font-size:14px;">+300 crédits</div>
+    <div class="my-bet-detail">100 crédits · Cote 3.0</div>
+    <div class="my-bet-gain" style="color: var(--accent-green);">+300 crédits</div>
   </div>
 </div>
 
 <!-- ===== PAGE: CUSTOM ===== -->
 <div class="page" id="page-custom">
-  <div class="custom-header">
+  <div class="page-header-row">
     <div>
       <h1>Paris personnalisés</h1>
-      <div class="muted">Solde: 1250 crédits</div>
+      <div class="subtitle">Solde: 1250 crédits</div>
     </div>
-    <button class="btn-proposer">+ Proposer</button>
+    <button class="btn btn-outline">+ Proposer</button>
   </div>
 
-  <h2>Paris proposés</h2>
+  <div class="section-title">Paris proposés</div>
 
-  <div class="custom-card">
-    <div class="custom-card-title">Mbappé se marie cet été ?</div>
-    <div class="custom-card-meta">2 contre 1 · 100 crédits · Proposé par Jean · Expire le 30/08/2024</div>
-    <div class="btn-grid-2">
-      <button class="btn btn-accept">Accepter</button>
-      <button class="btn btn-refuse">Refuser</button>
-    </div>
-  </div>
-
-  <div class="custom-card">
-    <div class="custom-card-title">PSG gagne la Ligue 1 ?</div>
-    <div class="custom-card-meta">1.5 contre 1 · 200 crédits · Proposé par Pierre · Expire le 15/05/2024</div>
-    <div class="btn-grid-2">
-      <button class="btn btn-accept">Accepter</button>
-      <button class="btn btn-refuse">Refuser</button>
+  <div class="custom-bet-card">
+    <div class="custom-bet-title">Mbappé se marie cet été ?</div>
+    <div class="custom-bet-meta">2 contre 1 · 100 crédits · Proposé par Jean · Expire le 30/08/2024</div>
+    <div class="custom-bet-actions">
+      <button class="btn btn-success">Accepter</button>
+      <button class="btn btn-danger">Refuser</button>
     </div>
   </div>
 
-  <div class="custom-card accepted">
-    <div class="custom-card-title" style="color:var(--text-muted);">France gagne l'Euro 2024 ?</div>
-    <div class="custom-card-meta">3 contre 1 · 150 crédits · Proposé par Marie</div>
-    <div class="green" style="font-size:14px;font-weight:600;">Accepté par vous</div>
+  <div class="custom-bet-card">
+    <div class="custom-bet-title">PSG gagne la Ligue 1 ?</div>
+    <div class="custom-bet-meta">1.5 contre 1 · 200 crédits · Proposé par Pierre · Expire le 15/05/2024</div>
+    <div class="custom-bet-actions">
+      <button class="btn btn-success">Accepter</button>
+      <button class="btn btn-danger">Refuser</button>
+    </div>
+  </div>
+
+  <div class="custom-bet-card faded">
+    <div class="custom-bet-title">France gagne l'Euro 2024 ?</div>
+    <div class="custom-bet-meta">3 contre 1 · 150 crédits · Proposé par Marie</div>
+    <div class="custom-bet-accepted">✓ Accepté par vous</div>
   </div>
 </div>
 
 <!-- ===== PAGE: TOP ===== -->
 <div class="page" id="page-top">
-  <h1>Classement général</h1>
-  <div class="top-subtitle">Fin de la saison dans 15 jours</div>
+  <div class="page-header">
+    <h1>Classement général</h1>
+    <div class="subtitle gold">Fin de la saison dans 15 jours</div>
+  </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Rang</th><th>Photo</th><th>Pseudo</th><th>Solde</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>1</td><td><div class="avatar">J</div></td><td>Jean</td><td>3200</td></tr>
-        <tr><td>2</td><td><div class="avatar">P</div></td><td>Pierre</td><td>2800</td></tr>
-        <tr><td>3</td><td><div class="avatar">M</div></td><td>Marie</td><td>2500</td></tr>
-        <tr><td>4</td><td><div class="avatar">S</div></td><td>Sophie</td><td>2100</td></tr>
-        <tr><td>5</td><td><div class="avatar">T</div></td><td>Thomas</td><td>1800</td></tr>
-      </tbody>
-    </table>
+  <div class="ranking-table">
+    <div class="ranking-row header">
+      <span>Rang</span><span>Photo</span><span>Pseudo</span><span>Solde</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">1</span>
+      <div class="rank-avatar">J</div>
+      <span class="rank-pseudo">Jean</span>
+      <span class="rank-score">3200</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">2</span>
+      <div class="rank-avatar">P</div>
+      <span class="rank-pseudo">Pierre</span>
+      <span class="rank-score">2800</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">3</span>
+      <div class="rank-avatar">M</div>
+      <span class="rank-pseudo">Marie</span>
+      <span class="rank-score">2500</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">4</span>
+      <div class="rank-avatar">S</div>
+      <span class="rank-pseudo">Sophie</span>
+      <span class="rank-score">2100</span>
+    </div>
+    <div class="ranking-row">
+      <span class="rank-number">5</span>
+      <div class="rank-avatar">T</div>
+      <span class="rank-pseudo">Thomas</span>
+      <span class="rank-score">1800</span>
+    </div>
   </div>
 
   <div class="stats-card">
-    <h2>Statistiques de la saison</h2>
+    <h3>Statistiques de la saison</h3>
     <div class="stat-row"><span>Total des paris</span><span class="stat-value">247</span></div>
     <div class="stat-row"><span>Participants actifs</span><span class="stat-value">5</span></div>
     <div class="stat-row"><span>Crédits en jeu</span><span class="stat-value">12 400</span></div>
@@ -328,43 +299,41 @@
 </div>
 
 <!-- ===== NAVBAR ===== -->
-<nav>
+<nav id="navbar" class="navbar hidden">
   <div class="nav-item active" id="nav-home" onclick="goTo('home')">
-    <span class="icon">🏠</span>
+    <span class="nav-icon">🏠</span>
     <span>Home</span>
   </div>
   <div class="nav-item" id="nav-blackjack" onclick="goTo('blackjack')">
-    <span class="icon">🃏</span>
+    <span class="nav-icon">🃏</span>
     <span>Blackjack</span>
   </div>
   <div class="nav-item" id="nav-sports" onclick="goTo('sports')">
-    <span class="icon">⚽</span>
+    <span class="nav-icon">⚽</span>
     <span>Sports</span>
   </div>
   <div class="nav-item" id="nav-custom" onclick="goTo('custom')">
-    <span class="icon">💬</span>
+    <span class="nav-icon">💬</span>
     <span>Custom</span>
   </div>
   <div class="nav-item" id="nav-top" onclick="goTo('top')">
-    <span class="icon">🏆</span>
+    <span class="nav-icon">🏆</span>
     <span>Top</span>
   </div>
 </nav>
 
-<script>
-  function goTo(page) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('page-' + page).classList.add('active');
-    document.getElementById('nav-' + page).classList.add('active');
-  }
+</div><!-- fin #app -->
 
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+<script>
   // Odds selector
-  document.querySelectorAll('.odd-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = btn.closest('.odds-row');
-      row.querySelectorAll('.odd-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+  document.querySelectorAll('.odds-grid').forEach(grid => {
+    grid.querySelectorAll('.odd-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        grid.querySelectorAll('.odd-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
     });
   });
 </script>

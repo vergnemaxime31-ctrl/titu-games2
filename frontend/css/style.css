@@ -82,6 +82,10 @@ html, body {
   z-index: 1000;
 }
 
+.navbar.hidden {
+  display: none !important;
+}
+
 .nav-item {
   display: flex;
   flex-direction: column;
