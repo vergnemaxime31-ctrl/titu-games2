@@ -2,10 +2,11 @@ const API_URL = 'https://titu-games2.onrender.com';
 
 // ===== SWITCH TABS LOGIN / REGISTER =====
 function switchTab(tab) {
-  const loginForm = document.getElementById('login-form');
-  const registerForm = document.getElementById('register-form');
+  const loginForm = document.getElementById('form-login');
+  const registerForm = document.getElementById('form-register');
   const tabLogin = document.getElementById('tab-login');
   const tabRegister = document.getElementById('tab-register');
+
 
   if (tab === 'login') {
     loginForm.style.display = 'block';
@@ -26,9 +27,9 @@ function switchTab(tab) {
 
 // ===== LOGIN =====
 async function login() {
-  const username = document.getElementById('login-username').value.trim();
+  const username = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value.trim();
-  const errorEl = document.getElementById('login-error');
+  const errorEl = document.getElementById('auth-error');
 
   errorEl.textContent = '';
 
@@ -62,20 +63,14 @@ async function login() {
 
 // ===== REGISTER =====
 async function register() {
-  const username = document.getElementById('register-username').value.trim();
-  const password = document.getElementById('register-password').value.trim();
-  const confirm = document.getElementById('register-confirm').value.trim();
-  const errorEl = document.getElementById('register-error');
-
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value.trim();
+  const errorEl = document.getElementById('auth-error'); // ← manquait
+  
   errorEl.textContent = '';
 
-  if (!username || !password || !confirm) {
+  if (!username || !password) { // ← retiré "confirm" qui n'existe pas
     errorEl.textContent = 'Remplis tous les champs.';
-    return;
-  }
-
-  if (password !== confirm) {
-    errorEl.textContent = 'Les mots de passe ne correspondent pas.';
     return;
   }
 
