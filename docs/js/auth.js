@@ -64,29 +64,29 @@ async function login() {
 // ===== REGISTER =====
 async function register() {
   const username = document.getElementById('reg-username').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value.trim();
-  const errorEl = document.getElementById('auth-error'); // ← manquait
-  
+  const errorEl = document.getElementById('auth-error');
+
   errorEl.textContent = '';
 
-  if (!username || !password) { // ← retiré "confirm" qui n'existe pas
+  if (!username || !password) {
     errorEl.textContent = 'Remplis tous les champs.';
     return;
   }
 
-  if (password.length < 6) {
-    errorEl.textContent = 'Mot de passe trop court (6 caractères min).';
-    return;
-  }
+  errorEl.style.color = '#888';
+  errorEl.textContent = 'Connexion au serveur... (peut prendre 30s)';
 
   try {
     const res = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, email, password })
     });
 
     const data = await res.json();
+    errorEl.style.color = 'var(--accent-red)';
 
     if (!res.ok) {
       errorEl.textContent = data.message || 'Erreur inscription.';
@@ -98,7 +98,8 @@ async function register() {
     enterApp(data.user);
 
   } catch (err) {
-    errorEl.textContent = 'Serveur inaccessible.';
+    errorEl.style.color = 'var(--accent-red)';
+    errorEl.textContent = 'Serveur inaccessible : ' + err.message;
   }
 }
 
