@@ -29,9 +29,9 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    const user = await User.findOne({ username: req.body.username });
+    const user = await User.findOne({ username });
     if (!user) return res.status(400).json({ message: 'Utilisateur introuvable' });
 
     const isMatch = await bcrypt.compare(password, user.password);
