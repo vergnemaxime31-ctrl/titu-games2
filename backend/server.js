@@ -26,3 +26,5 @@ mongoose.connect(process.env.MONGO_URI)
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Serveur lancé sur le port ${PORT}`));
+
+app.use(express.static('frontend'));
