@@ -8,7 +8,7 @@ router.get('/leaderboard', auth, async (req, res) => {
   try {
     const users = await User.find()
       .select('username coins')
-      .sort({ coins: -1 })
+      .sort({ credits: -1 })
       .limit(10);
     res.json(users);
   } catch (err) {
