@@ -104,50 +104,60 @@
 <div class="page" id="page-blackjack">
   <div class="page-header">
     <h1>Blackjack</h1>
-    <div class="subtitle">Solde: 1250 crédits</div>
+    <div class="subtitle" id="bj-credits">Solde: -- crédits</div>
   </div>
 
   <div class="cards-area">
     <div class="cards-label">Main du croupier</div>
-    <div class="cards-hand">
-      <div class="playing-card">A♠</div>
-      <div class="playing-card hidden">?</div>
+    <div class="cards-hand" id="bj-dealer-cards">
+      <div class="playing-card empty">?</div>
     </div>
+    <div class="card-total" id="bj-dealer-total"></div>
   </div>
 
   <div class="cards-area">
     <div class="cards-label">Votre main</div>
-    <div class="cards-hand">
-      <div class="playing-card">K♥</div>
-      <div class="playing-card">7♦</div>
+    <div class="cards-hand" id="bj-player-cards">
+      <div class="playing-card empty">?</div>
     </div>
-    <div class="card-total">Total : 17</div>
+    <div class="card-total" id="bj-player-total"></div>
   </div>
 
-  <div class="btn-grid">
-    <button class="btn">Miser 10</button>
-    <button class="btn">Miser 50</button>
-    <button class="btn">Tirer</button>
+  <div class="bj-message" id="bj-message"></div>
+
+  <!-- Bouton jouer -->
+  <div id="bj-btn-play-area">
+    <button class="btn btn-primary" onclick="bjPlay()">🃏 Jouer</button>
   </div>
-  <div class="btn-grid-2">
-    <button class="btn">Rester</button>
-    <button class="btn">Doubler</button>
+
+  <!-- Zone de mise -->
+  <div id="bj-bet-area" style="display:none">
+    <div class="section-title">Mise : <span id="bj-selected-bet">0</span> crédits</div>
+    <div class="btn-grid">
+      <button class="btn" onclick="addBet(10)">+10</button>
+      <button class="btn" onclick="addBet(25)">+25</button>
+      <button class="btn" onclick="addBet(50)">+50</button>
+      <button class="btn" onclick="addBet(100)">+100</button>
+    </div>
+    <div class="btn-grid">
+      <button class="btn btn-secondary" onclick="resetBet()">Reset</button>
+      <button class="btn btn-primary" onclick="bjConfirmBet()">✅ Confirmer</button>
+    </div>
+  </div>
+
+  <!-- Actions de jeu -->
+  <div id="bj-action-area" style="display:none">
+    <div class="btn-grid">
+      <button class="btn" onclick="bjHit()">Tirer</button>
+      <button class="btn" onclick="bjStand()">Rester</button>
+      <button class="btn" id="bj-btn-double" onclick="bjDouble()">Doubler</button>
+    </div>
   </div>
 
   <div class="section-title">Dernières parties</div>
-  <div class="bet-item">
-    <span class="bet-label">Blackjack !</span>
-    <span class="bet-amount positive">+100 crédits</span>
-  </div>
-  <div class="bet-item">
-    <span class="bet-label">Perdu</span>
-    <span class="bet-amount negative">-50 crédits</span>
-  </div>
-  <div class="bet-item">
-    <span class="bet-label">Gagné</span>
-    <span class="bet-amount positive">+30 crédits</span>
-  </div>
+  <div id="bj-history"></div>
 </div>
+
 
 <!-- ===== PAGE: SPORTS ===== -->
 <div class="page" id="page-sports">
