@@ -105,11 +105,10 @@ async function register() {
 
 // ===== ENTER APP =====
 function enterApp(user) {
-  // Affiche le vrai pseudo et crédits
   document.querySelector('.username').textContent = user.username;
   document.querySelector('.credits').textContent = user.coins + ' crédits';
 
-
+  document.getElementById('page-auth').classList.remove('active'); // ← AJOUTE ÇA
   document.getElementById('navbar').classList.remove('hidden');
   goTo('home');
   loadLeaderboard();
