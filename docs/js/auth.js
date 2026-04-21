@@ -104,16 +104,30 @@ async function register() {
 }
 
 // ===== ENTER APP =====
-function enterApp(user) {
-  console.log('user:', user);
+async function enterApp(user) {
   document.querySelector('.username').textContent = user.username;
-  document.querySelector('.credits').textContent = user.coins + ' crédits';
+  document.querySelector('.credits').textContent = '...';
 
-  document.getElementById('page-auth').classList.remove('active'); // ← AJOUTE ÇA
+  document.getElementById('page-auth').classList.remove('active');
   document.getElementById('navbar').classList.remove('hidden');
   goTo('home');
+
+  // Récupère le profil complet
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_URL}/users/me`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    console.log('profil:', data);
+    document.querySelector('.credits').textContent = (data.coins ?? data.credits ?? 0) + ' crédits';
+  } catch(e) {
+    console.error(e);
+  }
+
   loadLeaderboard();
 }
+
 
 // ===== LOGOUT =====
 function logout() {
