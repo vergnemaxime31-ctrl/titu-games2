@@ -116,18 +116,28 @@
   </div>
 
   <div class="cards-area">
-    <div class="cards-label">Votre main</div>
+    <div class="cards-label">Votre main <span id="bj-hand-indicator" style="font-size:13px; color:var(--text-secondary);"></span></div>
     <div class="cards-hand" id="bj-player-cards">
       <div class="playing-card empty">?</div>
     </div>
     <div class="card-total" id="bj-player-total"></div>
   </div>
 
+  <!-- Main 2 (split) -->
+  <div id="bj-split-area" style="display:none" class="cards-area">
+    <div class="cards-label">Votre main 2</div>
+    <div class="cards-hand" id="bj-player-cards-2"></div>
+    <div class="card-total" id="bj-player-total-2"></div>
+  </div>
+
   <div class="bj-message" id="bj-message"></div>
 
-  <!-- Bouton jouer -->
+  <!-- Boutons principaux -->
   <div id="bj-btn-play-area">
-    <button class="btn btn-primary" id="bj-btn-play" onclick="bjPlay()">🃏 Jouer</button>
+    <div class="btn-grid">
+      <button class="btn btn-primary" onclick="bjPlay()">🃏 Changer de mise</button>
+      <button class="btn btn-secondary" id="bj-btn-replay" style="display:none" onclick="bjReplay()">🔄 Rejouer même mise</button>
+    </div>
   </div>
 
   <!-- Zone de mise -->
@@ -151,12 +161,11 @@
       <button class="btn" onclick="bjHit()">Tirer</button>
       <button class="btn" onclick="bjStand()">Rester</button>
       <button class="btn" id="bj-btn-double" onclick="bjDouble()">Doubler</button>
+      <button class="btn" id="bj-btn-split" onclick="bjSplit()" style="display:none">Split</button>
     </div>
   </div>
 
-  <div class="section-title">Dernières parties</div>
-
-    <!-- Bouton historique -->
+  <!-- Historique -->
   <button class="btn btn-secondary" onclick="toggleHistory()" style="margin-top:16px">📋 Historique des parties</button>
   <div id="bj-history" style="display:none"></div>
 </div>
