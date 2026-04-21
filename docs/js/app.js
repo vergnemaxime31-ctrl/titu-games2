@@ -10,6 +10,7 @@ function goTo(page) {
   if (navItem) navItem.classList.add('active');
 
   if (page === 'leaderboard') loadLeaderboard();
+  if (page === 'blackjack') initBlackjack(); // ← AJOUTE ÇA
 }
 
 // ===== LEADERBOARD =====
