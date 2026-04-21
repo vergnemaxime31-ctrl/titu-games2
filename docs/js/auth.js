@@ -112,7 +112,6 @@ async function enterApp(user) {
   document.getElementById('navbar').classList.remove('hidden');
   goTo('home');
 
-  // Récupère le profil complet
   try {
     const token = localStorage.getItem('token');
     const res = await fetch(`${API_URL}/users/me`, {
@@ -120,13 +119,19 @@ async function enterApp(user) {
     });
     const data = await res.json();
     console.log('profil:', data);
-    document.querySelector('.credits').textContent = (data.credits ?? 0) + ' crédits';
+
+    // data peut être l'objet directement ou dans data.user
+    const profile = data?.user ?? data;
+    const coins = profile?.coins ?? profile?.credits ?? user?.coins ?? user?.credits ?? 0;
+    document.querySelector('.credits').textContent = coins + ' crédits';
   } catch(e) {
     console.error(e);
+    document.querySelector('.credits').textContent = '0 crédits';
   }
 
   loadLeaderboard();
 }
+
 
 
 // ===== LOGOUT =====
