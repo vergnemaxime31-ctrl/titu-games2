@@ -105,6 +105,7 @@ async function register() {
 
 // ===== ENTER APP =====
 function enterApp(user) {
+  console.log('user:', user);
   document.querySelector('.username').textContent = user.username;
   document.querySelector('.credits').textContent = user.coins + ' crédits';
 
