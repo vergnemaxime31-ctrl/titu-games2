@@ -10,8 +10,10 @@ const blackjackGameSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  playerCards: [String],   // Ex: ["K♥", "7♦"]
-  dealerCards: [String],   // Ex: ["A♠", "?"]
+  playerCards: [String],
+  dealerCards: [String],
+  dealerHiddenCard: { type: String, default: '' },  // ← carte cachée du croupier
+  deck: { type: Array, default: [] },                // ← deck persistant
   playerTotal: Number,
   dealerTotal: Number,
   result: {
@@ -19,7 +21,7 @@ const blackjackGameSchema = new mongoose.Schema({
     enum: ['win', 'lose', 'push', 'blackjack', 'ongoing'],
     default: 'ongoing'
   },
-  creditsChange: Number,   // +100 ou -50
+  creditsChange: Number,
   createdAt: {
     type: Date,
     default: Date.now
