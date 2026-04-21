@@ -10,11 +10,13 @@ let gameState = {
 async function initBlackjack() {
   renderIdle();
   try {
-    const res = await fetch(`${API_URL}/users/profile`, {
+    const res = await fetch(`${API_URL}/users/me`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
     const data = await res.json();
-    updateCreditsDisplay(data.credits);
+    const profile = data?.user ?? data;
+    const credits = profile?.coins ?? profile?.credits ?? 0;
+    updateCreditsDisplay(credits);
   } catch (err) {}
 }
 
