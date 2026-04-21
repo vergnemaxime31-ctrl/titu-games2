@@ -12,8 +12,6 @@ function goTo(page) {
   if (page === 'leaderboard') loadLeaderboard();
 }
 
-const API_URL = 'https://titu-games2.onrender.com/api';
-
 // ===== LEADERBOARD =====
 async function loadLeaderboard() {
   try {
