@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 router.get('/leaderboard', auth, async (req, res) => {
   try {
     const users = await User.find()
-      .select('username coins')
+      .select('username credits')
       .sort({ credits: -1 })
       .limit(10);
     res.json(users);
@@ -27,4 +27,4 @@ router.get('/me', auth, async (req, res) => {
 });
 
 module.exports = router;
-// Remplace le module.exports existant - à ajouter AVANT module.exports
+

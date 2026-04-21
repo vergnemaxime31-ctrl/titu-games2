@@ -35,7 +35,7 @@ async function loadLeaderboard() {
         <span class="rank-number">${index + 1}</span>
         <div class="rank-avatar">${user.username[0].toUpperCase()}</div>
         <span class="rank-pseudo">${user.username}</span>
-        <span class="rank-score">${user.coins}</span>
+        <span class="rank-score">${user.credits}</span>
       `;
       table.appendChild(row);
     });

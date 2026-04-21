@@ -12,7 +12,7 @@ exports.register = async (req, res) => {
     const user = await User.create({ username, email, password: hashed });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ token, user: { id: user._id, username: user.username, coins: user.coins } });
+    res.status(201).json({ token, user: { id: user._id, username: user.username, credits: user.credits } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -28,7 +28,7 @@ exports.login = async (req, res) => {
     if (!match) return res.status(400).json({ message: 'Mot de passe incorrect' });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, username: user.username, coins: user.coins } });
+    res.json({ token, user: { id: user._id, username: user.username, credits: user.credits } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

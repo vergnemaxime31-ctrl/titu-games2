@@ -120,7 +120,7 @@ async function enterApp(user) {
     });
     const data = await res.json();
     console.log('profil:', data);
-    document.querySelector('.credits').textContent = (data.coins ?? data.credits ?? 0) + ' crédits';
+    document.querySelector('.credits').textContent = (data.credits ?? 0) + ' crédits';
   } catch(e) {
     console.error(e);
   }
