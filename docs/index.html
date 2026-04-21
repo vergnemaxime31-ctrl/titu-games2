@@ -127,7 +127,7 @@
 
   <!-- Bouton jouer -->
   <div id="bj-btn-play-area">
-    <button class="btn btn-primary" onclick="bjPlay()">🃏 Jouer</button>
+    <button class="btn btn-primary" id="bj-btn-play" onclick="bjPlay()">🃏 Jouer</button>
   </div>
 
   <!-- Zone de mise -->
@@ -155,7 +155,10 @@
   </div>
 
   <div class="section-title">Dernières parties</div>
-  <div id="bj-history"></div>
+
+    <!-- Bouton historique -->
+  <button class="btn btn-secondary" onclick="toggleHistory()" style="margin-top:16px">📋 Historique des parties</button>
+  <div id="bj-history" style="display:none"></div>
 </div>
 
 

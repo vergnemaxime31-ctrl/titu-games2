@@ -1,15 +1,21 @@
 // ============ ÉTAT DU JEU ============
 let gameState = {
   gameId: null,
-  phase: 'idle', // idle, betting, playing, ended
+  phase: 'idle',
   bet: 0,
   credits: 0
 };
 
 // ============ INIT ============
-function initBlackjack() {
+async function initBlackjack() {
   renderIdle();
-  loadHistory();
+  try {
+    const res = await fetch(`${API_URL}/users/profile`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    const data = await res.json();
+    updateCreditsDisplay(data.credits);
+  } catch (err) {}
 }
 
 // ============ PHASES D'AFFICHAGE ============
@@ -22,22 +28,24 @@ function renderIdle() {
   document.getElementById('bj-dealer-total').textContent = '';
   document.getElementById('bj-message').textContent = '';
 
-  document.getElementById('bj-btn-play').style.display = 'block';
+  document.getElementById('bj-btn-play-area').style.display = 'block';
   document.getElementById('bj-bet-area').style.display = 'none';
   document.getElementById('bj-action-area').style.display = 'none';
 }
 
 function renderBetting() {
   gameState.phase = 'betting';
-  document.getElementById('bj-btn-play').style.display = 'none';
+  document.getElementById('bj-btn-play-area').style.display = 'none';
   document.getElementById('bj-bet-area').style.display = 'block';
   document.getElementById('bj-action-area').style.display = 'none';
   document.getElementById('bj-message').textContent = 'Choisissez votre mise';
   document.getElementById('bj-selected-bet').textContent = '0';
+  selectedBet = 0;
 }
 
 function renderPlaying(data) {
   gameState.phase = 'playing';
+  document.getElementById('bj-btn-play-area').style.display = 'none';
   document.getElementById('bj-bet-area').style.display = 'none';
   document.getElementById('bj-action-area').style.display = 'block';
 
@@ -46,14 +54,13 @@ function renderPlaying(data) {
   document.getElementById('bj-dealer-total').textContent = '';
   document.getElementById('bj-message').textContent = '';
 
-  // Double uniquement sur 2 cartes
   document.getElementById('bj-btn-double').disabled = data.playerCards.length !== 2;
 }
 
 function renderEnded(data) {
   gameState.phase = 'ended';
   document.getElementById('bj-action-area').style.display = 'none';
-  document.getElementById('bj-btn-play').style.display = 'block';
+  document.getElementById('bj-btn-play-area').style.display = 'block';
 
   updateCards(data.playerCards, data.dealerCards);
   document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
@@ -75,7 +82,6 @@ function renderEnded(data) {
   }
 
   updateCreditsDisplay(data.credits);
-  loadHistory();
 }
 
 // ============ CARTES ============
@@ -113,7 +119,6 @@ function resetBet() {
 
 async function bjPlay() {
   renderBetting();
-  selectedBet = 0;
 }
 
 async function bjConfirmBet() {
@@ -225,6 +230,16 @@ async function bjDouble() {
 
 // ============ HISTORIQUE ============
 
+function toggleHistory() {
+  const container = document.getElementById('bj-history');
+  if (container.style.display === 'none') {
+    container.style.display = 'block';
+    loadHistory();
+  } else {
+    container.style.display = 'none';
+  }
+}
+
 async function loadHistory() {
   try {
     const res = await fetch(`${API_URL}/blackjack/history`, {
@@ -252,6 +267,8 @@ async function loadHistory() {
 
   } catch (err) {}
 }
+
+// ============ UTILITAIRES ============
 
 function updateCreditsDisplay(credits) {
   gameState.credits = credits;
