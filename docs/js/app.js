@@ -13,8 +13,6 @@ function goTo(page) {
   if (navItem) navItem.classList.add('active');
 }
 
-const API_URL = 'https://titu-games2.onrender.com/api';
-
 async function loadLeaderboard() {
   try {
     const token = localStorage.getItem('token');
