@@ -506,7 +506,7 @@ async function loadHistory() {
 
 // ============ UTILITAIRES ============
 
-const DEAL_DELAY = 400; // ms entre chaque carte
+const DEAL_DELAY = 600; // ms entre chaque carte
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
