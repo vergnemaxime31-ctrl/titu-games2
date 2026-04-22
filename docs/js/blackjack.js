@@ -35,71 +35,66 @@ function renderIdle() {
   document.getElementById('bj-player-total').textContent = '';
   document.getElementById('bj-dealer-total').textContent = '';
   document.getElementById('bj-hand-indicator').textContent = '';
+  document.getElementById('bj-message').textContent = '';
+  document.getElementById('bj-message').className = 'bj-message';
   document.getElementById('bj-split-area').style.display = 'none';
   document.getElementById('bj-player-cards-2').innerHTML = '';
   document.getElementById('bj-player-total-2').textContent = '';
 
-  document.getElementById('bj-btn-play-area').style.display = 'block';
-  document.getElementById('bj-btn-replay').style.display = gameState.lastBet > 0 ? 'block' : 'none';
   document.getElementById('bj-bet-area').style.display = 'none';
   document.getElementById('bj-action-area').style.display = 'none';
+  document.getElementById('bj-btn-play-area').style.display = 'block';
+  document.getElementById('bj-btn-replay').style.display = gameState.lastBet > 0 ? 'block' : 'none';
 }
 
 function renderBetting() {
   gameState.phase = 'betting';
-  document.getElementById('bj-btn-play-area').style.display = 'none';
+  selectedBet = 0;
+  document.getElementById('bj-selected-bet').textContent = '0';
   document.getElementById('bj-bet-area').style.display = 'block';
   document.getElementById('bj-action-area').style.display = 'none';
-  document.getElementById('bj-message').textContent = 'Choisissez votre mise';
-  document.getElementById('bj-selected-bet').textContent = '0';
-  selectedBet = 0;
+  document.getElementById('bj-btn-play-area').style.display = 'none';
+  document.getElementById('bj-message').textContent = '';
 }
 
 function renderPlaying(data) {
   gameState.phase = 'playing';
-  document.getElementById('bj-btn-play-area').style.display = 'none';
+
   document.getElementById('bj-bet-area').style.display = 'none';
+  document.getElementById('bj-btn-play-area').style.display = 'none';
   document.getElementById('bj-action-area').style.display = 'block';
   document.getElementById('bj-message').textContent = '';
 
   updateDealerCards(data.dealerCards);
   document.getElementById('bj-dealer-total').textContent = '';
+  updatePlayerCards(data.playerCards, 1);
+  document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
 
-  if (gameState.splitActive && gameState.currentHand === 2) {
-    updatePlayerCards(data.playerCards, 2);
-    document.getElementById('bj-player-total-2').textContent = `Total : ${data.playerTotal}`;
-    document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
+  // Boutons
+  document.getElementById('bj-btn-double').style.display = 'block';
+  document.getElementById('bj-btn-double').disabled = false;
+
+  if (data.canSplit) {
+    document.getElementById('bj-btn-split').style.display = 'block';
   } else {
-    updatePlayerCards(data.playerCards, 1);
-    document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
-    document.getElementById('bj-hand-indicator').textContent = gameState.splitActive ? '▶ Main 1 active' : '';
+    document.getElementById('bj-btn-split').style.display = 'none';
   }
-
-  // Bouton double
-  const doubleBtn = document.getElementById('bj-btn-double');
-  doubleBtn.style.display = data.playerCards.length === 2 ? 'block' : 'none';
-  doubleBtn.disabled = data.playerCards.length !== 2;
-
-  // Bouton split
-  const splitBtn = document.getElementById('bj-btn-split');
-  const canSplit = !gameState.splitActive &&
-    data.playerCards?.length === 2 &&
-    cardValue(data.playerCards[0]) === cardValue(data.playerCards[1]) &&
-    gameState.credits >= gameState.bet;
-  splitBtn.style.display = canSplit ? 'block' : 'none';
 }
 
 function renderEnded(data) {
   gameState.phase = 'ended';
-  document.getElementById('bj-action-area').style.display = 'none';
-  document.getElementById('bj-hand-indicator').textContent = '';
 
-  updateDealerCards(data.dealerCards);
-  document.getElementById('bj-dealer-total').textContent = `Croupier : ${data.dealerTotal}`;
+  document.getElementById('bj-action-area').style.display = 'none';
+  document.getElementById('bj-bet-area').style.display = 'none';
+
+  // Dealer
+  updateDealerCards(data.dealerCards ?? ['?']);
+  document.getElementById('bj-dealer-total').textContent = data.dealerTotal ? `Croupier : ${data.dealerTotal}` : '';
 
   const msg = document.getElementById('bj-message');
 
   if (gameState.splitActive && data.hand1 && data.hand2) {
+    // Résultat split
     document.getElementById('bj-split-area').style.display = 'block';
     updatePlayerCards(data.hand1.cards, 1);
     document.getElementById('bj-player-total').textContent = `Main 1 : ${data.hand1.total} — ${labelResult(data.hand1.result)}`;
@@ -128,7 +123,7 @@ function renderEnded(data) {
     }
   }
 
-  updateCreditsDisplay(data.credits ?? data.newCredits ?? gameState.credits);
+  updateCreditsDisplay(data.credits ?? gameState.credits);
   document.getElementById('bj-btn-play-area').style.display = 'block';
   document.getElementById('bj-btn-replay').style.display = gameState.lastBet > 0 ? 'block' : 'none';
 }
@@ -155,11 +150,6 @@ function updateDealerCards(cards) {
 function getCardColor(card) {
   if (!card || card === '?') return '';
   return (card.includes('♥') || card.includes('♦')) ? 'red' : '';
-}
-
-function cardValue(card) {
-  if (!card) return '';
-  return card.replace(/[♠♣♥♦]/, '');
 }
 
 function labelResult(result) {
@@ -261,6 +251,19 @@ async function bjHit() {
     if (!res.ok) return;
 
     const hand = gameState.currentHand;
+
+    if (data.switchToHand2) {
+      // Main 1 bustée pendant split
+      updatePlayerCards(data.hand1Cards, 1);
+      document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total} — Perdu ❌`;
+      gameState.currentHand = 2;
+      document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
+      document.getElementById('bj-btn-double').style.display = 'block';
+      document.getElementById('bj-btn-double').disabled = false;
+      document.getElementById('bj-btn-split').style.display = 'none';
+      return;
+    }
+
     updatePlayerCards(data.playerCards, hand);
 
     if (hand === 2) {
@@ -272,33 +275,12 @@ async function bjHit() {
     document.getElementById('bj-btn-double').style.display = 'none';
     document.getElementById('bj-btn-split').style.display = 'none';
 
-    if (data.bust || data.result === 'lose') {
-      if (gameState.splitActive && gameState.currentHand === 1) {
-        // Main 1 bustée → marquer hand1Done backend puis passer à main 2
-        if (hand === 1) {
-          document.getElementById('bj-player-total').textContent += ' — Perdu ❌';
-        }
-        gameState.currentHand = 2;
-        document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
-        document.getElementById('bj-btn-double').style.display = 'block';
-        document.getElementById('bj-btn-double').disabled = false;
-
-        // Appel backend pour marquer hand1Done
-        await fetch(`${API_URL}/blackjack/stand`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ gameId: gameState.gameId, hand: 1 })
-        });
-      } else {
-        renderEnded({
-          ...data,
-          dealerCards: data.dealerCards ?? ['?'],
-          dealerTotal: data.dealerTotal ?? '?'
-        });
-      }
+    if (data.result === 'lose') {
+      renderEnded({
+        ...data,
+        dealerCards: data.dealerCards ?? ['?'],
+        dealerTotal: data.dealerTotal ?? '?'
+      });
     }
 
   } catch (err) {
@@ -327,16 +309,13 @@ async function bjStand() {
       gameState.currentHand = 2;
       document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
 
-      // Marquer main 1 comme stand
       updatePlayerCards(data.hand1Cards, 1);
       document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total} — Stand`;
 
-      // Afficher main 2
       updatePlayerCards(data.hand2Cards, 2);
       document.getElementById('bj-player-total-2').textContent = `Total : ${data.hand2Total}`;
       document.getElementById('bj-split-area').style.display = 'block';
 
-      // Réactiver les boutons pour main 2
       document.getElementById('bj-action-area').style.display = 'block';
       document.getElementById('bj-btn-double').style.display = 'block';
       document.getElementById('bj-btn-double').disabled = false;
@@ -373,7 +352,6 @@ async function bjDouble() {
 
     updateCreditsDisplay(data.credits);
 
-    // Split : passage à la main 2
     if (data.switchToHand2) {
       gameState.currentHand = 2;
       document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
@@ -392,20 +370,12 @@ async function bjDouble() {
       return;
     }
 
-    // Bust immédiat après double
-    if (data.result && data.result !== 'ongoing') {
-      renderEnded(data);
-      return;
-    }
-
-    // Jeu normal — double terminé, dealer joue
     renderEnded(data);
 
   } catch (err) {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
   }
 }
-
 
 // ============ SPLIT ============
 
@@ -438,7 +408,6 @@ async function bjSplit() {
     updatePlayerCards(data.hand2Cards, 2);
     document.getElementById('bj-player-total-2').textContent = `Total : ${data.hand2Total}`;
 
-    // Double autorisé sur main 1 si 2 cartes
     document.getElementById('bj-btn-double').style.display = 'block';
     document.getElementById('bj-btn-double').disabled = false;
 
@@ -466,7 +435,6 @@ async function loadHistory() {
     const res = await fetch(`${API_URL}/blackjack/history`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
-
     const games = await res.json();
     const container = document.getElementById('bj-history');
     container.innerHTML = '';
@@ -481,7 +449,8 @@ async function loadHistory() {
       div.className = 'bet-item';
       const label = g.result === 'blackjack' ? 'Blackjack !' :
                     g.result === 'win' ? 'Gagné' :
-                    g.result === 'lose' ? 'Perdu' : 'Égalité';
+                    g.result === 'lose' ? 'Perdu' :
+                    g.result === 'split' ? 'Split' : 'Égalité';
       const amount = g.creditsChange >= 0 ? `+${g.creditsChange}` : `${g.creditsChange}`;
       const cls = g.creditsChange > 0 ? 'positive' : g.creditsChange < 0 ? 'negative' : '';
       div.innerHTML = `<span class="bet-label">${label}</span><span class="bet-amount ${cls}">${amount} crédits</span>`;
