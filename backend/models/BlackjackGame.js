@@ -18,10 +18,16 @@ const blackjackGameSchema = new mongoose.Schema({
   dealerTotal: Number,
   result: {
     type: String,
-    enum: ['win', 'lose', 'push', 'blackjack', 'ongoing'],
+    enum: ['win', 'lose', 'push', 'blackjack', 'ongoing', 'split'],
     default: 'ongoing'
   },
   creditsChange: Number,
+  // Split fields
+  splitActive: { type: Boolean, default: false },
+  hand1Cards: { type: [String], default: [] },
+  hand2Cards: { type: [String], default: [] },
+  hand1Done: { type: Boolean, default: false },
+  hand2Done: { type: Boolean, default: false },
   createdAt: {
     type: Date,
     default: Date.now

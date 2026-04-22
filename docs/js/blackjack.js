@@ -252,12 +252,19 @@ async function bjHit() {
 
     const hand = gameState.currentHand;
 
+    // Split resolution (hand2 bust triggers resolveSplit on backend)
+    if (gameState.splitActive && data.hand1 && data.hand2) {
+      renderEnded(data);
+      return;
+    }
+
     if (data.switchToHand2) {
       // Main 1 bustée pendant split
       updatePlayerCards(data.hand1Cards, 1);
       document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total} — Perdu ❌`;
       gameState.currentHand = 2;
       document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
+      document.getElementById('bj-split-area').style.display = 'block';
       document.getElementById('bj-btn-double').style.display = 'block';
       document.getElementById('bj-btn-double').disabled = false;
       document.getElementById('bj-btn-split').style.display = 'none';
@@ -275,7 +282,7 @@ async function bjHit() {
     document.getElementById('bj-btn-double').style.display = 'none';
     document.getElementById('bj-btn-split').style.display = 'none';
 
-    if (data.result === 'lose') {
+    if (data.result === 'lose' && !gameState.splitActive) {
       renderEnded({
         ...data,
         dealerCards: data.dealerCards ?? ['?'],
