@@ -6,8 +6,8 @@ const SportBet = require('../models/SportBet');
 const User = require('../models/User');
 const axios = require('axios');
 
-const API_KEY = process.env.ODDS_API_KEY;
-const API_BASE = 'https://api.the-odds-api.com/v4';
+const API_KEY = process.env.API_FOOTBALL_KEY;
+const API_BASE = 'https://v3.football.api-sports.io';
 
 // GET /api/sports/matches - matchs disponibles (depuis DB)
 router.get('/matches', auth, async (req, res) => {
