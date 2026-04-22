@@ -17,6 +17,7 @@ app.use('/api/auth', require('./routes/auth'));
 const blackjackRoutes = require('./routes/blackjack');
 app.use('/api/blackjack', blackjackRoutes);
 app.use('/api/users', require('./routes/users'));
+app.use('/api/sports', require('./routes/sports'));
 
 // Connexion MongoDB
 mongoose.connect(process.env.MONGO_URI)
