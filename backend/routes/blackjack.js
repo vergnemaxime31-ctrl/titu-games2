@@ -67,7 +67,6 @@ function canSplit(cards) {
 async function resolveSplit(game, res) {
   const deck = [...game.deck];
 
-  // Croupier révèle et joue
   const dealerCards = [...game.dealerCards];
   dealerCards[1] = game.dealerHiddenCard;
   let dealerTotal = calculateTotal(dealerCards);
@@ -96,7 +95,6 @@ async function resolveSplit(game, res) {
 
   const totalChange = h1.change + h2.change;
 
-  // Rembourser les deux mises + gains nets
   user.credits += game.bet * 2 + totalChange;
 
   const notifMsg = `Blackjack Split - Main1: ${h1.result} (${h1.change >= 0 ? '+' : ''}${h1.change}), Main2: ${h2.result} (${h2.change >= 0 ? '+' : ''}${h2.change})`;
@@ -224,7 +222,11 @@ router.post('/hit', auth, async (req, res) => {
             playerCards: hand1Cards,
             playerTotal: total,
             bust: true,
-            switchToHand2: true
+            switchToHand2: true,
+            hand1Cards,
+            hand1Total: total,
+            hand2Cards: game.hand2Cards,
+            hand2Total: calculateTotal(game.hand2Cards)
           });
         }
 
@@ -423,10 +425,11 @@ router.post('/double', auth, async (req, res) => {
         await game.save();
         await user.save();
 
+        // ← FIX : renvoyer hand1Cards au lieu de playerCards
         return res.json({
           switchToHand2: true,
-          playerCards: game.hand1Cards,
-          playerTotal: total,
+          hand1Cards: game.hand1Cards,
+          hand1Total: total,
           hand2Cards: game.hand2Cards,
           hand2Total: calculateTotal(game.hand2Cards),
           credits: user.credits
