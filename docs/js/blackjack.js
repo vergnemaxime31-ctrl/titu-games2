@@ -62,31 +62,25 @@ function renderPlaying(data) {
   document.getElementById('bj-action-area').style.display = 'block';
   document.getElementById('bj-message').textContent = '';
 
-  // Cartes dealer
   updateDealerCards(data.dealerCards);
   document.getElementById('bj-dealer-total').textContent = '';
 
   if (gameState.splitActive && gameState.currentHand === 2) {
-    // On joue la main 2
     updatePlayerCards(data.playerCards, 2);
     document.getElementById('bj-player-total-2').textContent = `Total : ${data.playerTotal}`;
     document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
   } else {
-    // Main 1 (ou pas de split)
     updatePlayerCards(data.playerCards, 1);
     document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
-    if (gameState.splitActive) {
-      document.getElementById('bj-hand-indicator').textContent = '▶ Main 1 active';
-    } else {
-      document.getElementById('bj-hand-indicator').textContent = '';
-    }
+    document.getElementById('bj-hand-indicator').textContent = gameState.splitActive ? '▶ Main 1 active' : '';
   }
 
   // Bouton double
-  document.getElementById('bj-btn-double').style.display = data.playerCards.length === 2 ? 'block' : 'none';
-  document.getElementById('bj-btn-double').disabled = data.playerCards.length !== 2;
+  const doubleBtn = document.getElementById('bj-btn-double');
+  doubleBtn.style.display = data.playerCards.length === 2 ? 'block' : 'none';
+  doubleBtn.disabled = data.playerCards.length !== 2;
 
-  // Bouton split : deux cartes identiques, pas déjà splitté, crédits suffisants
+  // Bouton split
   const splitBtn = document.getElementById('bj-btn-split');
   const canSplit = !gameState.splitActive &&
     data.playerCards?.length === 2 &&
@@ -106,7 +100,6 @@ function renderEnded(data) {
   const msg = document.getElementById('bj-message');
 
   if (gameState.splitActive && data.hand1 && data.hand2) {
-    // Résultat split
     document.getElementById('bj-split-area').style.display = 'block';
     updatePlayerCards(data.hand1.cards, 1);
     document.getElementById('bj-player-total').textContent = `Main 1 : ${data.hand1.total} — ${labelResult(data.hand1.result)}`;
@@ -136,8 +129,6 @@ function renderEnded(data) {
   }
 
   updateCreditsDisplay(data.credits ?? data.newCredits ?? gameState.credits);
-
-  // Réafficher boutons idle avec rejouer
   document.getElementById('bj-btn-play-area').style.display = 'block';
   document.getElementById('bj-btn-replay').style.display = gameState.lastBet > 0 ? 'block' : 'none';
 }
@@ -168,7 +159,6 @@ function getCardColor(card) {
 
 function cardValue(card) {
   if (!card) return '';
-  // Extrait la valeur sans la couleur (ex: "A♠" → "A", "10♥" → "10")
   return card.replace(/[♠♣♥♦]/, '');
 }
 
@@ -213,6 +203,7 @@ async function bjConfirmBet() {
     document.getElementById('bj-message').textContent = 'Choisissez une mise';
     return;
   }
+
   document.getElementById('bj-split-area').style.display = 'none';
   document.getElementById('bj-player-cards-2').innerHTML = '';
   document.getElementById('bj-player-total-2').textContent = '';
@@ -269,24 +260,44 @@ async function bjHit() {
     const data = await res.json();
     if (!res.ok) return;
 
-    if (gameState.splitActive && gameState.currentHand === 2) {
-      updatePlayerCards(data.playerCards, 2);
+    const hand = gameState.currentHand;
+    updatePlayerCards(data.playerCards, hand);
+
+    if (hand === 2) {
       document.getElementById('bj-player-total-2').textContent = `Total : ${data.playerTotal}`;
     } else {
-      updatePlayerCards(data.playerCards, 1);
       document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
     }
+
     document.getElementById('bj-btn-double').style.display = 'none';
     document.getElementById('bj-btn-split').style.display = 'none';
 
-    if (data.result === 'lose') {
+    if (data.bust || data.result === 'lose') {
       if (gameState.splitActive && gameState.currentHand === 1) {
-        // Passe à la main 2
+        // Main 1 bustée → marquer hand1Done backend puis passer à main 2
+        if (hand === 1) {
+          document.getElementById('bj-player-total').textContent += ' — Perdu ❌';
+        }
         gameState.currentHand = 2;
         document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
-        document.getElementById('bj-player-total').textContent += ' — Perdu ❌';
+        document.getElementById('bj-btn-double').style.display = 'block';
+        document.getElementById('bj-btn-double').disabled = false;
+
+        // Appel backend pour marquer hand1Done
+        await fetch(`${API_URL}/blackjack/stand`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ gameId: gameState.gameId, hand: 1 })
+        });
       } else {
-        renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?'], dealerTotal: data.dealerTotal ?? '?' });
+        renderEnded({
+          ...data,
+          dealerCards: data.dealerCards ?? ['?'],
+          dealerTotal: data.dealerTotal ?? '?'
+        });
       }
     }
 
@@ -297,65 +308,13 @@ async function bjHit() {
 
 async function bjStand() {
   try {
-    // Si split et main 1, passer à main 2
-    if (gameState.splitActive && gameState.currentHand === 1) {
-      gameState.currentHand = 2;
-      document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
-      document.getElementById('bj-btn-double').style.display = 'none';
-      document.getElementById('bj-btn-split').style.display = 'none';
-      return;
-    }
-
     const res = await fetch(`${API_URL}/blackjack/stand`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ gameId: gameState.gameId })
-    });
-
-    const data = await res.json();
-    if (!res.ok) return;
-
-    renderEnded(data);
-
-  } catch (err) {
-    document.getElementById('bj-message').textContent = 'Erreur serveur';
-  }
-}
-
-async function bjDouble() {
-  try {
-    const res = await fetch(`${API_URL}/blackjack/double`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ gameId: gameState.gameId })
-    });
-
-    const data = await res.json();
-    if (!res.ok) return;
-
-    renderEnded(data);
-
-  } catch (err) {
-    document.getElementById('bj-message').textContent = 'Erreur serveur';
-  }
-}
-
-async function bjStand() {
-  try {
-    // Split main 1 → appel API pour marquer hand1Done
-    const res = await fetch(`${API_URL}/blackjack/stand`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         gameId: gameState.gameId,
         hand: gameState.splitActive ? gameState.currentHand : undefined
       })
@@ -364,13 +323,17 @@ async function bjStand() {
     const data = await res.json();
     if (!res.ok) return;
 
-    // Si split main 1 → passer à main 2
     if (data.switchToHand2) {
       gameState.currentHand = 2;
       document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
       document.getElementById('bj-btn-double').style.display = 'block';
       document.getElementById('bj-btn-double').disabled = false;
       document.getElementById('bj-btn-split').style.display = 'none';
+      // Afficher main 1 figée, main 2 jouable
+      updatePlayerCards(data.hand1Cards, 1);
+      document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total} — Stand`;
+      updatePlayerCards(data.hand2Cards, 2);
+      document.getElementById('bj-player-total-2').textContent = `Total : ${data.hand2Total}`;
       return;
     }
 
@@ -389,7 +352,7 @@ async function bjDouble() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         gameId: gameState.gameId,
         hand: gameState.splitActive ? gameState.currentHand : undefined
       })
@@ -398,11 +361,9 @@ async function bjDouble() {
     const data = await res.json();
     if (!res.ok) return;
 
-    // Si split main 1 après double → passer à main 2
     if (data.switchToHand2) {
       gameState.currentHand = 2;
       document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
-      // Mettre à jour l'affichage main 1
       updatePlayerCards(data.playerCards, 1);
       document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal} — Double`;
       document.getElementById('bj-btn-double').style.display = 'block';
@@ -418,60 +379,47 @@ async function bjDouble() {
   }
 }
 
-async function bjHit() {
+// ============ SPLIT ============
+
+async function bjSplit() {
   try {
-    const res = await fetch(`${API_URL}/blackjack/hit`, {
+    const res = await fetch(`${API_URL}/blackjack/split`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({
-        gameId: gameState.gameId,
-        hand: gameState.splitActive ? gameState.currentHand : undefined
-      })
+      body: JSON.stringify({ gameId: gameState.gameId })
     });
 
     const data = await res.json();
-    if (!res.ok) return;
-
-    const hand = gameState.currentHand;
-    updatePlayerCards(data.playerCards, hand);
-    if (hand === 2) {
-      document.getElementById('bj-player-total-2').textContent = `Total : ${data.playerTotal}`;
-    } else {
-      document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
+    if (!res.ok) {
+      document.getElementById('bj-message').textContent = data.message || 'Erreur split';
+      return;
     }
-    document.getElementById('bj-btn-double').style.display = 'none';
+
+    gameState.splitActive = true;
+    gameState.currentHand = 1;
+
+    document.getElementById('bj-split-area').style.display = 'block';
+    document.getElementById('bj-hand-indicator').textContent = '▶ Main 1 active';
     document.getElementById('bj-btn-split').style.display = 'none';
 
-    if (data.result === 'lose') {
-      if (gameState.splitActive && gameState.currentHand === 1) {
-        // Main 1 bustée → passer main 2 via API stand
-        gameState.currentHand = 2;
-        document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
-        document.getElementById('bj-player-total').textContent += ' — Perdu ❌';
-        document.getElementById('bj-btn-double').style.display = 'block';
-        document.getElementById('bj-btn-double').disabled = false;
-        // Marquer hand1Done sur le backend
-        await fetch(`${API_URL}/blackjack/stand`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ gameId: gameState.gameId, hand: 1 })
-        });
-      } else {
-        renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?'], dealerTotal: data.dealerTotal ?? '?' });
-      }
-    }
+    updatePlayerCards(data.hand1Cards, 1);
+    document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total}`;
+    updatePlayerCards(data.hand2Cards, 2);
+    document.getElementById('bj-player-total-2').textContent = `Total : ${data.hand2Total}`;
+
+    // Double autorisé sur main 1 si 2 cartes
+    document.getElementById('bj-btn-double').style.display = 'block';
+    document.getElementById('bj-btn-double').disabled = false;
+
+    updateCreditsDisplay(data.credits);
 
   } catch (err) {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
   }
 }
-
 
 // ============ HISTORIQUE ============
 
@@ -522,7 +470,6 @@ function updateCreditsDisplay(credits) {
   gameState.credits = credits;
   const el = document.getElementById('bj-credits');
   if (el) el.textContent = `Solde: ${credits} crédits`;
-  // Sync navbar
   const navCredits = document.querySelector('.credits');
   if (navCredits) navCredits.textContent = credits + ' crédits';
 }
