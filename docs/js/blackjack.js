@@ -213,7 +213,10 @@ async function bjConfirmBet() {
     document.getElementById('bj-message').textContent = 'Choisissez une mise';
     return;
   }
-
+  document.getElementById('bj-split-area').style.display = 'none';
+  document.getElementById('bj-player-cards-2').innerHTML = '';
+  document.getElementById('bj-player-total-2').textContent = '';
+  document.getElementById('bj-hand-indicator').textContent = '';
   gameState.bet = selectedBet;
   gameState.splitActive = false;
   gameState.currentHand = 1;
