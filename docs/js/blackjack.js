@@ -346,42 +346,132 @@ async function bjDouble() {
   }
 }
 
-async function bjSplit() {
+async function bjStand() {
   try {
-    const res = await fetch(`${API_URL}/blackjack/split`, {
+    // Split main 1 → appel API pour marquer hand1Done
+    const res = await fetch(`${API_URL}/blackjack/stand`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ gameId: gameState.gameId })
+      body: JSON.stringify({ 
+        gameId: gameState.gameId,
+        hand: gameState.splitActive ? gameState.currentHand : undefined
+      })
     });
 
     const data = await res.json();
-    if (!res.ok) {
-      document.getElementById('bj-message').textContent = data.message || 'Erreur split';
+    if (!res.ok) return;
+
+    // Si split main 1 → passer à main 2
+    if (data.switchToHand2) {
+      gameState.currentHand = 2;
+      document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
+      document.getElementById('bj-btn-double').style.display = 'block';
+      document.getElementById('bj-btn-double').disabled = false;
+      document.getElementById('bj-btn-split').style.display = 'none';
       return;
     }
 
-    gameState.splitActive = true;
-    gameState.currentHand = 1;
-
-    document.getElementById('bj-split-area').style.display = 'block';
-    document.getElementById('bj-hand-indicator').textContent = '▶ Main 1 active';
-    document.getElementById('bj-btn-split').style.display = 'none';
-
-    // Afficher les deux mains initiales après split
-    updatePlayerCards(data.hand1Cards, 1);
-    document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total}`;
-    updatePlayerCards(data.hand2Cards, 2);
-    document.getElementById('bj-player-total-2').textContent = `Total : ${data.hand2Total}`;
-
-    updateCreditsDisplay(data.credits);
+    renderEnded(data);
 
   } catch (err) {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
   }
 }
+
+async function bjDouble() {
+  try {
+    const res = await fetch(`${API_URL}/blackjack/double`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ 
+        gameId: gameState.gameId,
+        hand: gameState.splitActive ? gameState.currentHand : undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) return;
+
+    // Si split main 1 après double → passer à main 2
+    if (data.switchToHand2) {
+      gameState.currentHand = 2;
+      document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
+      // Mettre à jour l'affichage main 1
+      updatePlayerCards(data.playerCards, 1);
+      document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal} — Double`;
+      document.getElementById('bj-btn-double').style.display = 'block';
+      document.getElementById('bj-btn-double').disabled = false;
+      document.getElementById('bj-btn-split').style.display = 'none';
+      return;
+    }
+
+    renderEnded(data);
+
+  } catch (err) {
+    document.getElementById('bj-message').textContent = 'Erreur serveur';
+  }
+}
+
+async function bjHit() {
+  try {
+    const res = await fetch(`${API_URL}/blackjack/hit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        gameId: gameState.gameId,
+        hand: gameState.splitActive ? gameState.currentHand : undefined
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) return;
+
+    const hand = gameState.currentHand;
+    updatePlayerCards(data.playerCards, hand);
+    if (hand === 2) {
+      document.getElementById('bj-player-total-2').textContent = `Total : ${data.playerTotal}`;
+    } else {
+      document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
+    }
+    document.getElementById('bj-btn-double').style.display = 'none';
+    document.getElementById('bj-btn-split').style.display = 'none';
+
+    if (data.result === 'lose') {
+      if (gameState.splitActive && gameState.currentHand === 1) {
+        // Main 1 bustée → passer main 2 via API stand
+        gameState.currentHand = 2;
+        document.getElementById('bj-hand-indicator').textContent = '▶ Main 2 active';
+        document.getElementById('bj-player-total').textContent += ' — Perdu ❌';
+        document.getElementById('bj-btn-double').style.display = 'block';
+        document.getElementById('bj-btn-double').disabled = false;
+        // Marquer hand1Done sur le backend
+        await fetch(`${API_URL}/blackjack/stand`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ gameId: gameState.gameId, hand: 1 })
+        });
+      } else {
+        renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?'], dealerTotal: data.dealerTotal ?? '?' });
+      }
+    }
+
+  } catch (err) {
+    document.getElementById('bj-message').textContent = 'Erreur serveur';
+  }
+}
+
 
 // ============ HISTORIQUE ============
 
