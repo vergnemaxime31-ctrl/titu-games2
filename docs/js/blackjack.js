@@ -57,18 +57,41 @@ function renderBetting() {
   document.getElementById('bj-message').textContent = '';
 }
 
-function renderPlaying(data) {
+async function renderPlaying(data) {
   gameState.phase = 'playing';
 
   document.getElementById('bj-bet-area').style.display = 'none';
   document.getElementById('bj-btn-play-area').style.display = 'none';
   document.getElementById('bj-action-area').style.display = 'block';
   document.getElementById('bj-message').textContent = '';
-
-  updateDealerCards(data.dealerCards);
   document.getElementById('bj-dealer-total').textContent = '';
-  updatePlayerCards(data.playerCards, 1);
+  document.getElementById('bj-player-total').textContent = '';
+
+  // Vider les zones
+  const playerArea = document.getElementById('bj-player-cards');
+  const dealerArea = document.getElementById('bj-dealer-cards');
+  playerArea.innerHTML = '';
+  dealerArea.innerHTML = '';
+
+  // Bloquer les boutons pendant la distribution
+  setActionButtonsEnabled(false);
+
+  // Distribution séquentielle : J1, C1, J2, C-cachée
+  playerArea.appendChild(createCardElement(data.playerCards[0]));
+  await delay(DEAL_DELAY);
+
+  dealerArea.appendChild(createCardElement(data.dealerCards[0]));
+  await delay(DEAL_DELAY);
+
+  playerArea.appendChild(createCardElement(data.playerCards[1]));
   document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
+  await delay(DEAL_DELAY);
+
+  dealerArea.appendChild(createCardElement(data.dealerCards[1])); // '?'
+  await delay(DEAL_DELAY);
+
+  // Débloquer les boutons
+  setActionButtonsEnabled(true);
 
   // Boutons
   document.getElementById('bj-btn-double').style.display = 'block';
@@ -81,14 +104,28 @@ function renderPlaying(data) {
   }
 }
 
-function renderEnded(data) {
+async function renderEnded(data) {
   gameState.phase = 'ended';
 
   document.getElementById('bj-action-area').style.display = 'none';
   document.getElementById('bj-bet-area').style.display = 'none';
 
-  // Dealer
-  updateDealerCards(data.dealerCards ?? ['?']);
+  // Distribution animée des cartes du croupier
+  const dealerCards = data.dealerCards ?? ['?'];
+  const dealerArea = document.getElementById('bj-dealer-cards');
+
+  // On récupère le nombre de cartes déjà visibles (avant la révélation)
+  // La première carte est déjà visible, on révèle à partir de la carte cachée
+  dealerArea.innerHTML = '';
+
+  for (let i = 0; i < dealerCards.length; i++) {
+    dealerArea.appendChild(createCardElement(dealerCards[i]));
+    // Délai entre chaque carte sauf la première (déjà connue)
+    if (i >= 1) {
+      await delay(DEAL_DELAY);
+    }
+  }
+
   document.getElementById('bj-dealer-total').textContent = data.dealerTotal ? `Croupier : ${data.dealerTotal}` : '';
 
   const msg = document.getElementById('bj-message');
@@ -223,9 +260,9 @@ async function bjConfirmBet() {
     updateCreditsDisplay(data.credits);
 
     if (data.result === 'blackjack') {
-      renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?', '?'], dealerTotal: data.dealerTotal ?? '?' });
+      await renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?', '?'], dealerTotal: data.dealerTotal ?? '?' });
     } else {
-      renderPlaying(data);
+      await renderPlaying(data);
     }
 
   } catch (err) {
@@ -254,7 +291,7 @@ async function bjHit() {
 
     // Split resolution (hand2 bust triggers resolveSplit on backend)
     if (gameState.splitActive && data.hand1 && data.hand2) {
-      renderEnded(data);
+      await renderEnded(data);
       return;
     }
 
@@ -283,7 +320,7 @@ async function bjHit() {
     document.getElementById('bj-btn-split').style.display = 'none';
 
     if (data.result === 'lose' && !gameState.splitActive) {
-      renderEnded({
+      await renderEnded({
         ...data,
         dealerCards: data.dealerCards ?? ['?'],
         dealerTotal: data.dealerTotal ?? '?'
@@ -330,7 +367,7 @@ async function bjStand() {
       return;
     }
 
-    renderEnded(data);
+    await renderEnded(data);
 
   } catch (err) {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
@@ -377,7 +414,7 @@ async function bjDouble() {
       return;
     }
 
-    renderEnded(data);
+    await renderEnded(data);
 
   } catch (err) {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
@@ -468,6 +505,32 @@ async function loadHistory() {
 }
 
 // ============ UTILITAIRES ============
+
+const DEAL_DELAY = 400; // ms entre chaque carte
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function createCardElement(card) {
+  const div = document.createElement('div');
+  if (card === '?') {
+    div.className = 'playing-card hidden card-deal';
+    div.textContent = '?';
+  } else {
+    div.className = `playing-card ${getCardColor(card)} card-deal`;
+    div.textContent = card;
+  }
+  return div;
+}
+
+function setActionButtonsEnabled(enabled) {
+  const ids = ['bj-btn-hit', 'bj-btn-stand', 'bj-btn-double', 'bj-btn-split'];
+  ids.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !enabled;
+  });
+}
 
 function updateCreditsDisplay(credits) {
   if (credits === undefined || credits === null) return;
