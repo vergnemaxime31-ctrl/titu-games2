@@ -65,16 +65,21 @@ function canSplit(cards) {
 }
 
 async function resolveSplit(game, res) {
-  const deck = game.deck;
+  const deck = [...game.deck];
 
   // Croupier révèle et joue
-  game.dealerCards[1] = game.dealerHiddenCard;
-  let dealerTotal = calculateTotal(game.dealerCards);
+  const dealerCards = [...game.dealerCards];
+  dealerCards[1] = game.dealerHiddenCard;
+  let dealerTotal = calculateTotal(dealerCards);
   while (dealerTotal < 17) {
-    game.dealerCards.push(deck.pop());
-    dealerTotal = calculateTotal(game.dealerCards);
+    dealerCards.push(deck.pop());
+    dealerTotal = calculateTotal(dealerCards);
   }
+
   game.deck = deck;
+  game.dealerCards = dealerCards;
+  game.markModified('deck');
+  game.markModified('dealerCards');
 
   const user = await User.findById(game.userId);
 
@@ -98,14 +103,13 @@ async function resolveSplit(game, res) {
   user.notifications.push({ message: notifMsg });
   await user.save();
 
-  game.status = 'ended';
   game.result = 'split';
   game.creditsChange = totalChange;
   game.dealerTotal = dealerTotal;
   await game.save();
 
   return res.json({
-    dealerCards: game.dealerCards,
+    dealerCards,
     dealerTotal,
     hand1: {
       cards: game.hand1Cards,
@@ -159,15 +163,14 @@ router.post('/start', auth, async (req, res) => {
     const game = await BlackjackGame.create({
       userId: req.user.id,
       bet,
-      playerCards,
-      dealerCards,
+      playerCards: [...playerCards],
+      dealerCards: [...dealerCards],
       dealerHiddenCard,
       playerTotal,
       dealerTotal: getCardValue(dealerCards[0]),
       result,
       creditsChange,
-      deck,
-      // Split
+      deck: [...deck],
       splitActive: false,
       hand1Cards: [],
       hand2Cards: [],
@@ -193,7 +196,7 @@ router.post('/start', auth, async (req, res) => {
 // POST /api/blackjack/hit
 router.post('/hit', auth, async (req, res) => {
   try {
-    const { gameId, handNumber } = req.body; // handNumber = 1 ou 2 (split)
+    const { gameId, handNumber } = req.body;
     const game = await BlackjackGame.findById(gameId);
 
     if (!game || game.userId.toString() !== req.user.id)
@@ -201,47 +204,76 @@ router.post('/hit', auth, async (req, res) => {
     if (game.result !== 'ongoing')
       return res.status(400).json({ message: 'Partie déjà terminée' });
 
-    const deck = game.deck;
+    const deck = [...game.deck];
     const newCard = deck.pop();
     game.deck = deck;
+    game.markModified('deck');
 
     // ── Split actif ──
     if (game.splitActive) {
       if (handNumber === 2) {
-        game.hand2Cards.push(newCard);
-        const total = calculateTotal(game.hand2Cards);
-        if (total > 21) game.hand2Done = true;
-        await game.save();
+        const hand2Cards = [...game.hand2Cards, newCard];
+        game.hand2Cards = hand2Cards;
+        game.markModified('hand2Cards');
+        const total = calculateTotal(hand2Cards);
 
-        if (game.hand1Done && game.hand2Done) {
-          return await resolveSplit(game, res);
+        if (total > 21) {
+          game.hand2Done = true;
+          await game.save();
+          // Les deux mains sont terminées
+          if (game.hand1Done) {
+            return await resolveSplit(game, res);
+          }
+          return res.json({
+            newCard,
+            hand2Cards,
+            hand2Total: total,
+            bust: true
+          });
         }
 
+        await game.save();
         return res.json({
           newCard,
-          hand2Cards: game.hand2Cards,
+          hand2Cards,
           hand2Total: total,
-          bust: total > 21
+          bust: false
         });
+
       } else {
         // Main 1
-        game.hand1Cards.push(newCard);
-        const total = calculateTotal(game.hand1Cards);
-        if (total > 21) game.hand1Done = true;
-        await game.save();
+        const hand1Cards = [...game.hand1Cards, newCard];
+        game.hand1Cards = hand1Cards;
+        game.markModified('hand1Cards');
+        const total = calculateTotal(hand1Cards);
 
+        if (total > 21) {
+          game.hand1Done = true;
+          await game.save();
+          return res.json({
+            newCard,
+            hand1Cards,
+            hand1Total: total,
+            bust: true,
+            switchToHand2: true
+          });
+        }
+
+        await game.save();
         return res.json({
           newCard,
-          hand1Cards: game.hand1Cards,
+          hand1Cards,
           hand1Total: total,
-          bust: total > 21
+          bust: false
         });
       }
     }
 
     // ── Jeu normal ──
-    game.playerCards.push(newCard);
-    const playerTotal = calculateTotal(game.playerCards);
+    const playerCards = [...game.playerCards, newCard];
+    game.playerCards = playerCards;
+    game.markModified('playerCards');
+    const playerTotal = calculateTotal(playerCards);
     game.playerTotal = playerTotal;
 
     if (playerTotal > 21) {
@@ -254,7 +286,7 @@ router.post('/hit', auth, async (req, res) => {
       await user.save();
 
       return res.json({
-        playerCards: game.playerCards,
+        playerCards,
         playerTotal,
         result: 'lose',
         creditsChange: -game.bet,
@@ -266,9 +298,10 @@ router.post('/hit', auth, async (req, res) => {
     const user = await User.findById(req.user.id);
 
     res.json({
-      playerCards: game.playerCards,
+      playerCards,
       playerTotal,
       result: 'ongoing',
+      canSplit: false,
       credits: user.credits
     });
 
@@ -293,8 +326,13 @@ router.post('/stand', auth, async (req, res) => {
       if (handNumber === 1) {
         game.hand1Done = true;
         await game.save();
-        // Passer à la main 2
-        return res.json({ switchToHand2: true });
+        return res.json({
+          switchToHand2: true,
+          hand1Cards: game.hand1Cards,
+          hand1Total: calculateTotal(game.hand1Cards),
+          hand2Cards: game.hand2Cards,
+          hand2Total: calculateTotal(game.hand2Cards)
+        });
       } else {
         game.hand2Done = true;
         await game.save();
@@ -303,17 +341,20 @@ router.post('/stand', auth, async (req, res) => {
     }
 
     // ── Jeu normal ──
-    const deck = game.deck;
-
-    game.dealerCards[1] = game.dealerHiddenCard;
-    let dealerTotal = calculateTotal(game.dealerCards);
+    const deck = [...game.deck];
+    const dealerCards = [...game.dealerCards];
+    dealerCards[1] = game.dealerHiddenCard;
+    let dealerTotal = calculateTotal(dealerCards);
 
     while (dealerTotal < 17) {
-      game.dealerCards.push(deck.pop());
-      dealerTotal = calculateTotal(game.dealerCards);
+      dealerCards.push(deck.pop());
+      dealerTotal = calculateTotal(dealerCards);
     }
 
     game.deck = deck;
+    game.dealerCards = dealerCards;
+    game.markModified('deck');
+    game.markModified('dealerCards');
 
     const playerTotal = game.playerTotal;
     let result = '';
@@ -348,7 +389,7 @@ router.post('/stand', auth, async (req, res) => {
 
     res.json({
       playerCards: game.playerCards,
-      dealerCards: game.dealerCards,
+      dealerCards,
       playerTotal,
       dealerTotal,
       result,
@@ -377,27 +418,30 @@ router.post('/double', auth, async (req, res) => {
     if (user.credits < game.bet)
       return res.status(400).json({ message: 'Crédits insuffisants pour doubler' });
 
-    const deck = game.deck;
+    const deck = [...game.deck];
 
     user.credits -= game.bet;
     game.bet *= 2;
 
     const newCard = deck.pop();
-    game.playerCards.push(newCard);
-    const playerTotal = calculateTotal(game.playerCards);
+    const playerCards = [...game.playerCards, newCard];
+    game.playerCards = playerCards;
+    game.markModified('playerCards');
+    const playerTotal = calculateTotal(playerCards);
     game.playerTotal = playerTotal;
 
     if (playerTotal > 21) {
       game.result = 'lose';
       game.creditsChange = -game.bet;
       game.deck = deck;
+      game.markModified('deck');
 
       user.notifications.push({ message: `Blackjack - Perdu (double) ! -${game.bet} crédits` });
       await user.save();
       await game.save();
 
       return res.json({
-        playerCards: game.playerCards,
+        playerCards,
         dealerCards: game.dealerCards,
         playerTotal,
         dealerTotal: '?',
@@ -407,15 +451,19 @@ router.post('/double', auth, async (req, res) => {
       });
     }
 
-    game.dealerCards[1] = game.dealerHiddenCard;
-    let dealerTotal = calculateTotal(game.dealerCards);
+    const dealerCards = [...game.dealerCards];
+    dealerCards[1] = game.dealerHiddenCard;
+    let dealerTotal = calculateTotal(dealerCards);
 
     while (dealerTotal < 17) {
-      game.dealerCards.push(deck.pop());
-      dealerTotal = calculateTotal(game.dealerCards);
+      dealerCards.push(deck.pop());
+      dealerTotal = calculateTotal(dealerCards);
     }
 
     game.deck = deck;
+    game.dealerCards = dealerCards;
+    game.markModified('deck');
+    game.markModified('dealerCards');
 
     let result = '';
     let creditsChange = 0;
@@ -446,8 +494,8 @@ router.post('/double', auth, async (req, res) => {
     await game.save();
 
     res.json({
-      playerCards: game.playerCards,
-      dealerCards: game.dealerCards,
+      playerCards,
+      dealerCards,
       playerTotal,
       dealerTotal,
       result,
@@ -476,29 +524,30 @@ router.post('/split', auth, async (req, res) => {
     if (user.credits < game.bet)
       return res.status(400).json({ message: 'Crédits insuffisants pour splitter' });
 
-    // Débiter la mise supplémentaire
     user.credits -= game.bet;
     await user.save();
 
-    const deck = game.deck;
+    const deck = [...game.deck];
 
-    // Construire les deux mains
     const hand1Cards = [game.playerCards[0], deck.pop()];
     const hand2Cards = [game.playerCards[1], deck.pop()];
 
     game.splitActive = true;
-    game.hand1Cards = hand1Cards;
-    game.hand2Cards = hand2Cards;
+    game.hand1Cards = [...hand1Cards];
+    game.hand2Cards = [...hand2Cards];
     game.hand1Done = false;
     game.hand2Done = false;
     game.deck = deck;
+    game.markModified('hand1Cards');
+    game.markModified('hand2Cards');
+    game.markModified('deck');
     await game.save();
 
     res.json({
-      hand1Cards,
-      hand1Total: calculateTotal(hand1Cards),
-      hand2Cards,
-      hand2Total: calculateTotal(hand2Cards),
+      hand1Cards: game.hand1Cards,
+      hand1Total: calculateTotal(game.hand1Cards),
+      hand2Cards: game.hand2Cards,
+      hand2Total: calculateTotal(game.hand2Cards),
       credits: user.credits
     });
 
