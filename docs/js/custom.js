@@ -56,23 +56,51 @@ async function loadOpenBets() {
       return;
     }
 
-    container.innerHTML = bets.map(bet => `
-      <div class="custom-bet-card">
-        <div class="custom-bet-title">${bet.question}</div>
-        <div class="custom-bet-meta">
-          Cote: ${bet.odds} · Mise créateur: ${bet.creatorAmount} crédits · 
-          Tu mises: <strong>${bet.opponentAmount} crédits</strong> · 
-          Proposé par ${bet.creatorId?.username || '?'} · 
-          Expire le ${new Date(bet.expiresAt).toLocaleDateString('fr-FR')}
+    const html = bets.map(bet => {
+      const isCreator = bet.creatorId?._id === user?.id;
+      const isAcceptor = bet.acceptedBy?._id === user?.id;
+      const isParticipant = isCreator || isAcceptor;
+
+      // Paris en vote → visible à tous sauf participants
+      if (bet.status === 'pending_result') {
+        if (isParticipant) return '';
+        return `
+          <div class="custom-bet-card">
+            <div class="custom-bet-title">🗳️ ${bet.question}</div>
+            <div class="custom-bet-meta">
+              Vote en cours · ${bet.creatorId?.username} vs ${bet.acceptedBy?.username || '?'}
+            </div>
+            <div class="custom-bet-actions">
+              <button class="btn btn-outline" onclick="openVoteModal('${bet._id}', \`${bet.question}\`)">Voter</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // Paris ouverts normaux
+      if (bet.status !== 'open') return '';
+
+      return `
+        <div class="custom-bet-card">
+          <div class="custom-bet-title">${bet.question}</div>
+          <div class="custom-bet-meta">
+            Cote: ${bet.odds} · Mise créateur: ${bet.creatorAmount} crédits · 
+            Tu mises: <strong>${bet.opponentAmount} crédits</strong> · 
+            Proposé par ${bet.creatorId?.username || '?'} · 
+            Expire le ${new Date(bet.expiresAt).toLocaleDateString('fr-FR')}
+          </div>
+          <div class="custom-bet-actions">
+            ${!isCreator
+              ? `<button class="btn btn-success" onclick="acceptBet('${bet._id}', ${bet.opponentAmount})">Accepter</button>`
+              : `<span style="color:var(--text-secondary);font-size:13px;">Votre pari</span>`
+            }
+          </div>
         </div>
-        <div class="custom-bet-actions">
-          ${bet.creatorId?._id !== user?.id 
-            ? `<button class="btn btn-success" onclick="acceptBet('${bet._id}', ${bet.opponentAmount})">Accepter</button>`
-            : `<span style="color:var(--text-secondary);font-size:13px;">Votre pari</span>`
-          }
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+
+    container.innerHTML = html || '<p class="no-data">Aucun pari disponible</p>';
+
   } catch (e) {
     container.innerHTML = '<p class="no-data">Erreur de chargement</p>';
   }
