@@ -13,6 +13,37 @@ function goTo(page) {
   if (page === 'blackjack') initBlackjack();
   if (page === 'sports') initSports();
   if (page === 'custom') initCustom();
+  if (page === 'home') loadHomeCustomBets();
+}  // ← goTo se ferme ici
+
+// ===== HOME CUSTOM BETS =====
+async function loadHomeCustomBets() {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_URL}/custom-bets`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    const container = document.getElementById('home-custom-bets');
+    container.innerHTML = '';
+
+    data.slice(0, 3).forEach(bet => {
+      container.innerHTML += `
+        <div class="card">
+          <div style="font-size:15px; font-weight:500;">${bet.description}</div>
+          <div style="color:var(--text-secondary); margin-top:4px; font-size:14px;">
+            Proposé par ${bet.creatorId?.username || '?'}
+          </div>
+        </div>
+      `;
+    });
+
+    if (data.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-secondary); text-align:center;">Aucun pari pour l\'instant</p>';
+    }
+  } catch (err) {
+    console.error('Erreur home custom bets:', err);
+  }
 }
 
 // ===== LEADERBOARD =====
@@ -29,7 +60,7 @@ async function loadLeaderboard() {
     table.innerHTML = '';
     table.appendChild(header);
 
-    data.forEach((user, index) => {
+    data.slice(0, 3).forEach((user, index) => {
       const row = document.createElement('div');
       row.className = 'ranking-row';
       row.innerHTML = `
