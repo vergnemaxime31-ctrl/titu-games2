@@ -4,66 +4,12 @@ const auth = require('../middleware/auth');
 const Match = require('../models/Match');
 const SportBet = require('../models/SportBet');
 const User = require('../models/User');
-const axios = require('axios');
-
-const API_KEY = process.env.API_FOOTBALL_KEY;
-const API_BASE = 'https://v3.football.api-sports.io';
 
 // GET /api/sports/matches - matchs disponibles (depuis DB)
 router.get('/matches', auth, async (req, res) => {
   try {
     const matches = await Match.find({ status: 'upcoming' }).sort({ matchDate: 1 });
     res.json(matches);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/sports/fetch - récupère les matchs depuis l'API (admin/cron)
-router.post('/fetch', async (req, res) => {
-  try {
-    const sports = ['soccer_france_ligue1', 'soccer_spain_la_liga', 'soccer_england_league1'];
-    let totalAdded = 0;
-
-    for (const sport of sports) {
-      const { data } = await axios.get(`${API_BASE}/sports/${sport}/odds`, {
-        params: {
-          apiKey: API_KEY,
-          regions: 'eu',
-          markets: 'h2h',
-          oddsFormat: 'decimal',
-          dateFormat: 'iso'
-        }
-      });
-
-      for (const match of data) {
-        const exists = await Match.findOne({ apiMatchId: match.id });
-        if (exists) continue;
-
-        const bookmaker = match.bookmakers?.[0];
-        const market = bookmaker?.markets?.[0];
-        const outcomes = market?.outcomes || [];
-
-        const homeOdd = outcomes.find(o => o.name === match.home_team)?.price;
-        const awayOdd = outcomes.find(o => o.name === match.away_team)?.price;
-        const drawOdd = outcomes.find(o => o.name === 'Draw')?.price;
-
-        if (!homeOdd || !awayOdd) continue;
-
-        await Match.create({
-          homeTeam: match.home_team,
-          awayTeam: match.away_team,
-          league: sport,
-          matchDate: new Date(match.commence_time),
-          odds: { home: homeOdd, draw: drawOdd || null, away: awayOdd },
-          apiMatchId: match.id,
-          status: 'upcoming'
-        });
-        totalAdded++;
-      }
-    }
-
-    res.json({ message: `${totalAdded} matchs ajoutés` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -159,6 +105,33 @@ router.post('/resolve/:matchId', async (req, res) => {
     }
 
     res.json({ message: `Match résolu, ${bets.length} paris traités` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/sports/matches - créer un match manuellement (admin)
+router.post('/matches', async (req, res) => {
+  try {
+    const { homeTeam, awayTeam, league, matchDate, odds } = req.body;
+
+    if (!homeTeam || !awayTeam || !odds?.home || !odds?.away)
+      return res.status(400).json({ message: 'Champs manquants' });
+
+    const match = await Match.create({
+      homeTeam,
+      awayTeam,
+      league: league || 'Autre',
+      matchDate: matchDate ? new Date(matchDate) : new Date(),
+      odds: {
+        home: odds.home,
+        draw: odds.draw || null,
+        away: odds.away
+      },
+      status: 'upcoming'
+    });
+
+    res.json({ message: 'Match créé !', match });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
