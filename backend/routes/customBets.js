@@ -49,14 +49,16 @@ router.post('/', auth, async (req, res) => {
 // ─────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
   try {
-    const bets = await CustomBet.find({ status: 'open' })
+    const bets = await CustomBet.find({ status: { $in: ['open', 'pending_result'] } })
       .populate('creatorId', 'username avatar')
+      .populate('acceptedBy', 'username avatar')
       .sort({ createdAt: -1 });
     res.json(bets);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 // ─────────────────────────────────────────
 // GET /api/custom-bets/mine — Mes paris
