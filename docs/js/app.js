@@ -12,6 +12,7 @@ function goTo(page) {
   if (page === 'leaderboard') loadLeaderboard();
   if (page === 'blackjack') initBlackjack();
   if (page === 'sports') initSports();
+  if (page === 'custom') initCustom();
 }
 
 // ===== LEADERBOARD =====

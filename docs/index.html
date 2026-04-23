@@ -208,35 +208,58 @@
   <div class="page-header-row">
     <div>
       <h1>Paris personnalisés</h1>
-      <div class="subtitle">Solde: 1250 crédits</div>
+      <div class="subtitle">Solde: <span id="custom-credits">--</span></div>
     </div>
-    <button class="btn btn-outline">+ Proposer</button>
+    <button class="btn btn-outline" onclick="openCreateModal()">+ Proposer</button>
   </div>
 
-  <div class="section-title">Paris proposés</div>
+  <div class="section-title">Paris disponibles</div>
+  <div id="custom-open-list"><p class="no-data">Chargement...</p></div>
 
-  <div class="custom-bet-card">
-    <div class="custom-bet-title">Mbappé se marie cet été ?</div>
-    <div class="custom-bet-meta">2 contre 1 · 100 crédits · Proposé par Jean · Expire le 30/08/2024</div>
-    <div class="custom-bet-actions">
-      <button class="btn btn-success">Accepter</button>
-      <button class="btn btn-danger">Refuser</button>
+  <div class="section-title">Mes paris</div>
+  <div id="custom-my-list"><p class="no-data">Chargement...</p></div>
+
+  <!-- Modal créer -->
+  <div class="modal-overlay" id="create-modal" style="display:none">
+    <div class="modal-box">
+      <h3>Proposer un pari</h3>
+      <div class="form-group">
+        <label>Question</label>
+        <input type="text" id="create-question" placeholder="Ex: Mbappé marque ce weekend ?" />
+      </div>
+      <div class="form-group">
+        <label>Cote (ex: 2 = double la mise)</label>
+        <input type="number" id="create-odds" min="1.1" step="0.1" placeholder="2" />
+      </div>
+      <div class="form-group">
+        <label>Votre mise (crédits)</label>
+        <input type="number" id="create-amount" min="1" placeholder="100" />
+      </div>
+      <div class="form-group">
+        <label>Expire le</label>
+        <input type="date" id="create-expires" />
+      </div>
+      <div id="create-error" style="color:var(--accent-red);font-size:13px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="closeCreateModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitCreateBet()">Créer</button>
+      </div>
     </div>
   </div>
 
-  <div class="custom-bet-card">
-    <div class="custom-bet-title">PSG gagne la Ligue 1 ?</div>
-    <div class="custom-bet-meta">1.5 contre 1 · 200 crédits · Proposé par Pierre · Expire le 15/05/2024</div>
-    <div class="custom-bet-actions">
-      <button class="btn btn-success">Accepter</button>
-      <button class="btn btn-danger">Refuser</button>
+  <!-- Modal voter -->
+  <div class="modal-overlay" id="vote-modal" style="display:none">
+    <div class="modal-box">
+      <h3>🗳️ Voter</h3>
+      <p id="vote-modal-question" style="font-weight:600;margin-bottom:8px;"></p>
+      <p id="vote-counts" style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;"></p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn btn-success" onclick="submitVote('creator_wins')">✅ Créateur gagne</button>
+        <button class="btn btn-danger" onclick="submitVote('acceptor_wins')">✅ Adversaire gagne</button>
+      </div>
+      <p id="vote-result-msg" style="font-size:13px;"></p>
+      <button class="btn btn-secondary" onclick="closeVoteModal()" style="margin-top:12px;">Fermer</button>
     </div>
-  </div>
-
-  <div class="custom-bet-card faded">
-    <div class="custom-bet-title">France gagne l'Euro 2024 ?</div>
-    <div class="custom-bet-meta">3 contre 1 · 150 crédits · Proposé par Marie</div>
-    <div class="custom-bet-accepted">✓ Accepté par vous</div>
   </div>
 </div>
 
@@ -321,6 +344,7 @@
 <script src="js/blackjack.js"></script>
 <script src="js/sports.js"></script>
 <script src="js/app.js"></script>
+<script src="js/custom.js"></script>
 <script>
   // Odds selector
   document.querySelectorAll('.odds-grid').forEach(grid => {
