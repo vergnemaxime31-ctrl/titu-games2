@@ -260,7 +260,20 @@ async function submitCreateBet() {
   const question = document.getElementById('create-question').value.trim();
   const odds = parseFloat(document.getElementById('create-odds').value);
   const amount = parseInt(document.getElementById('create-amount').value);
-  const expiresAt = document.getElementById('create-expires').value;
+  const delayValue = parseInt(document.getElementById('create-delay-value').value);
+  const delayUnit = document.getElementById('create-delay-unit').value;
+
+  if (!question || !odds || !amount || !delayValue) {
+    errorEl.textContent = 'Remplis tous les champs';
+    return;
+  }
+
+  const now = new Date();
+  let expiresAt;
+  if (delayUnit === 'minutes') expiresAt = new Date(now.getTime() + delayValue * 60 * 1000);
+  if (delayUnit === 'hours')   expiresAt = new Date(now.getTime() + delayValue * 60 * 60 * 1000);
+  if (delayUnit === 'days')    expiresAt = new Date(now.getTime() + delayValue * 24 * 60 * 60 * 1000);
+
   const errorEl = document.getElementById('create-error');
 
   if (!question || !odds || !amount || !expiresAt) {
