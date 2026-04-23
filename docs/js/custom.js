@@ -1,5 +1,3 @@
-const API_URL = 'https://titu-games2.onrender.com/api';
-
 let currentBet = null; // pari sélectionné pour voter/détail
 
 // ─────────────────────────────────────────
