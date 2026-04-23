@@ -8,38 +8,37 @@ const customBetSchema = new mongoose.Schema({
   },
   question: {
     type: String,
-    required: true             // "Mbappé va se marier cet été ?"
+    required: true
   },
   odds: {
     type: Number,
-    required: true             // 2 (= 2 contre 1)
+    required: true
   },
-  amount: {
+  creatorAmount: {
     type: Number,
-    required: true             // Crédits misés par le créateur
+    required: true
   },
-  expiresAt: {
-    type: Date,
-    required: true             // Date limite pour accepter
+  opponentAmount: {
+    type: Number,
+    required: true  // calculé auto : creatorAmount * odds
   },
   status: {
     type: String,
-    enum: ['open', 'accepted', 'resolved', 'expired', 'cancelled'],
+    enum: ['open', 'matched', 'pending_result', 'resolved', 'cancelled'],
     default: 'open'
   },
   acceptedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null              // Joueur qui accepte le pari
+    default: null
+  },
+  expiresAt: {
+    type: Date,
+    required: true
   },
   result: {
     type: String,
     enum: ['creator_wins', 'acceptor_wins', null],
-    default: null
-  },
-  resolvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',              // Admin qui valide le résultat
     default: null
   },
   createdAt: { type: Date, default: Date.now }

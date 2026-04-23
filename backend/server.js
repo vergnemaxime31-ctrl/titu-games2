@@ -18,6 +18,8 @@ const blackjackRoutes = require('./routes/blackjack');
 app.use('/api/blackjack', blackjackRoutes);
 app.use('/api/users', require('./routes/users'));
 app.use('/api/sports', require('./routes/sports'));
+app.use('/api/custom-bets', require('./routes/customBets'));
+
 
 // Connexion MongoDB
 mongoose.connect(process.env.MONGO_URI)
