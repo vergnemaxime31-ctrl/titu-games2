@@ -273,47 +273,18 @@
     <div class="subtitle gold">Fin de la saison dans 15 jours</div>
   </div>
 
-  <div class="ranking-table">
+  <div class="ranking-table" id="full-ranking-table">
     <div class="ranking-row header">
       <span>Rang</span><span>Photo</span><span>Pseudo</span><span>Solde</span>
     </div>
-    <div class="ranking-row">
-      <span class="rank-number">1</span>
-      <div class="rank-avatar">J</div>
-      <span class="rank-pseudo">Jean</span>
-      <span class="rank-score">3200</span>
-    </div>
-    <div class="ranking-row">
-      <span class="rank-number">2</span>
-      <div class="rank-avatar">P</div>
-      <span class="rank-pseudo">Pierre</span>
-      <span class="rank-score">2800</span>
-    </div>
-    <div class="ranking-row">
-      <span class="rank-number">3</span>
-      <div class="rank-avatar">M</div>
-      <span class="rank-pseudo">Marie</span>
-      <span class="rank-score">2500</span>
-    </div>
-    <div class="ranking-row">
-      <span class="rank-number">4</span>
-      <div class="rank-avatar">S</div>
-      <span class="rank-pseudo">Sophie</span>
-      <span class="rank-score">2100</span>
-    </div>
-    <div class="ranking-row">
-      <span class="rank-number">5</span>
-      <div class="rank-avatar">T</div>
-      <span class="rank-pseudo">Thomas</span>
-      <span class="rank-score">1800</span>
-    </div>
+    <p style="color:var(--text-secondary); text-align:center;">Chargement...</p>
   </div>
 
   <div class="stats-card">
     <h3>Statistiques de la saison</h3>
-    <div class="stat-row"><span>Total des paris</span><span class="stat-value">247</span></div>
-    <div class="stat-row"><span>Participants actifs</span><span class="stat-value">5</span></div>
-    <div class="stat-row"><span>Crédits en jeu</span><span class="stat-value">12 400</span></div>
+    <div class="stat-row"><span>Total des paris</span><span class="stat-value" id="stat-total-bets">--</span></div>
+    <div class="stat-row"><span>Participants actifs</span><span class="stat-value" id="stat-active-users">--</span></div>
+    <div class="stat-row"><span>Crédits en jeu</span><span class="stat-value" id="stat-credits">--</span></div>
   </div>
 </div>
 

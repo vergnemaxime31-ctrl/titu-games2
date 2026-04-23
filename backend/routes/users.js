@@ -26,5 +26,15 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+router.get('/stats/bets-count', auth, async (req, res) => {
+  try {
+    const sportBets = await SportBet.countDocuments();
+    const customBets = await CustomBet.countDocuments();
+    res.json({ total: sportBets + customBets });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 

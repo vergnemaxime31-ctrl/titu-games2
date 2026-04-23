@@ -9,7 +9,7 @@ function goTo(page) {
   const navItem = document.getElementById('nav-' + page);
   if (navItem) navItem.classList.add('active');
 
-  if (page === 'leaderboard') loadLeaderboard();
+  if (page === 'leaderboard') loadLeaderboardPage();
   if (page === 'blackjack') initBlackjack();
   if (page === 'sports') initSports();
   if (page === 'custom') initCustom();
