@@ -19,8 +19,13 @@ function initSports() {
     if (e.target.id === 'bet-modal') closeBetModal();
   });
 
-  document.getElementById('btn-confirm-bet')?.addEventListener('click', confirmBet);
+  // Fix : délai pour s'assurer que le DOM est prêt
+  setTimeout(() => {
+    const btn = document.getElementById('btn-confirm-bet');
+    if (btn) btn.onclick = confirmBet;
+  }, 100);
 }
+
 
 async function loadSportsCredits() {
   const token = localStorage.getItem('token');

@@ -640,3 +640,91 @@ html, body {
 .page.active {
   animation: fadeIn 0.2s ease;
 }
+.match-odds {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.odd-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.odd-btn:hover {
+  background: #3a3a3a;
+  border-color: var(--accent-green);
+}
+
+.odd-label {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.odd-value {
+  color: #f0a500;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 4px;
+}
+
+/* Match card */
+.match-card {
+  background: #1a1a1a;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #333;
+}
+
+.match-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.match-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.vs {
+  color: #555;
+  font-size: 12px;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: #1e1e1e;
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 360px;
+  border: 1px solid #333;
+}
