@@ -103,8 +103,8 @@ async function confirmBet() {
   btn.disabled = true;
 
   try {
-    const res = await fetch(`${API_URL}/sports/bets`, {
-      method: 'POST',
+    const res = await fetch(`${API_URL}/sports/bet`, {
+    method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ matchId: window._selectedMatchId, prediction: window._selectedPrediction, amount })
     });
