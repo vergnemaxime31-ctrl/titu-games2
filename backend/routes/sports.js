@@ -149,5 +149,10 @@ router.delete('/matches', async (req, res) => {
   res.json({ message: 'Tous les matchs supprimés' });
 });
 
+router.delete('/bets', async (req, res) => {
+  await SportBet.deleteMany({});
+  res.json({ message: 'Tous les paris supprimés' });
+});
+
 
 module.exports = router;
