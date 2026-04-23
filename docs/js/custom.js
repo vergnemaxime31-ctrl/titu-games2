@@ -16,15 +16,26 @@ async function initCustom() {
 // ─────────────────────────────────────────
 async function updateCustomCredits() {
   try {
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    // Affichage immédiat depuis le localStorage
+    if (user?.credits !== undefined) {
+      document.getElementById('custom-credits').textContent = user.credits + ' crédits';
+    }
+
+    // Mise à jour depuis le serveur
     const token = localStorage.getItem('token');
-    const res = await fetch(`${API_URL}/users/me`, {
+    const res = await fetch(`${API_URL}/users/leaderboard`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     const data = await res.json();
-    const profile = data?.user ?? data;
-    const credits = profile?.credits ?? 0;
-    document.getElementById('custom-credits').textContent = credits + ' crédits';
-  } catch (e) {}
+    const me = data.find(u => u.username === user?.username);
+    if (me) {
+      document.getElementById('custom-credits').textContent = me.credits + ' crédits';
+    }
+  } catch (e) {
+    console.error('Erreur crédits custom:', e);
+  }
 }
 
 // ─────────────────────────────────────────
