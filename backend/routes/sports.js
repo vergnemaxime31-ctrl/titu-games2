@@ -137,4 +137,17 @@ router.post('/matches', async (req, res) => {
   }
 });
 
+// Supprimer un match
+router.delete('/matches/:matchId', async (req, res) => {
+  await Match.findByIdAndDelete(req.params.matchId);
+  res.json({ message: 'Match supprimé' });
+});
+
+// Supprimer tous les matchs
+router.delete('/matches', async (req, res) => {
+  await Match.deleteMany({});
+  res.json({ message: 'Tous les matchs supprimés' });
+});
+
+
 module.exports = router;
