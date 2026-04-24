@@ -540,3 +540,210 @@ function updateCreditsDisplay(credits) {
   const navCredits = document.querySelector('.credits');
   if (navCredits) navCredits.textContent = credits + ' crédits';
 }
+
+// ============ MODE PVP ============
+
+let pvpState = {
+  active: false,
+  sessionId: null,
+  targetId: null,
+  targetName: null,
+  cap: 0,
+  netDifference: 0,
+  capRestant: 0
+};
+
+async function enablePvpMode() {
+  pvpState.active = true;
+  document.getElementById('bj-pvp-panel').style.display = 'block';
+  document.getElementById('bj-pvp-btn-activate').style.display = 'none';
+  await loadPvpTargets();
+}
+
+function disablePvpMode() {
+  pvpState = { active: false, sessionId: null, targetId: null, targetName: null, cap: 0, netDifference: 0, capRestant: 0 };
+  document.getElementById('bj-pvp-panel').style.display = 'none';
+  document.getElementById('bj-pvp-btn-activate').style.display = 'block';
+  document.getElementById('bj-pvp-status').textContent = '';
+  renderIdle();
+}
+
+async function loadPvpTargets() {
+  try {
+    const res = await fetch(`${API_URL}/pvp/targets`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    const targets = await res.json();
+
+    const select = document.getElementById('bj-pvp-target-select');
+    select.innerHTML = '<option value="">— Choisir une cible —</option>';
+    targets.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t._id;
+      opt.textContent = `${t.username} (${t.credits} crédits)`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    document.getElementById('bj-pvp-status').textContent = 'Erreur chargement cibles';
+  }
+}
+
+async function startPvpSession() {
+  const select = document.getElementById('bj-pvp-target-select');
+  const targetId = select.value;
+  if (!targetId) {
+    document.getElementById('bj-pvp-status').textContent = 'Choisissez une cible';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/pvp/session/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ targetId })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('bj-pvp-status').textContent = data.error || 'Erreur';
+      return;
+    }
+
+    pvpState.sessionId = data.sessionId;
+    pvpState.targetId = targetId;
+    pvpState.targetName = select.options[select.selectedIndex].textContent.split(' (')[0];
+    pvpState.cap = data.cap;
+    pvpState.capRestant = data.cap;
+    pvpState.netDifference = 0;
+
+    updatePvpStatus();
+
+    document.getElementById('bj-pvp-target-select').style.display = 'none';
+    document.getElementById('bj-pvp-btn-start').style.display = 'none';
+    document.getElementById('bj-pvp-btn-quit').style.display = 'block';
+
+  } catch (err) {
+    document.getElementById('bj-pvp-status').textContent = 'Erreur serveur';
+  }
+}
+
+async function quitPvpSession() {
+  if (!pvpState.sessionId) { disablePvpMode(); return; }
+
+  try {
+    await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/quit`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+  } catch (err) {}
+
+  disablePvpMode();
+}
+
+function updatePvpStatus() {
+  const diff = pvpState.netDifference;
+  const sign = diff >= 0 ? '+' : '';
+  document.getElementById('bj-pvp-status').textContent =
+    `⚔️ ${pvpState.targetName} | Cap : ${pvpState.cap} | Restant : ${pvpState.capRestant} | Bilan : ${sign}${diff}`;
+}
+
+// Override bjConfirmBet pour injecter le mode PvP
+const _originalConfirmBet = bjConfirmBet;
+
+async function bjConfirmBet() {
+  if (!pvpState.active || !pvpState.sessionId) {
+    return _originalConfirmBet();
+  }
+
+  // Mode PvP — appel direct à notre route
+  if (selectedBet <= 0) {
+    document.getElementById('bj-message').textContent = 'Choisissez une mise';
+    return;
+  }
+  if (selectedBet > pvpState.capRestant) {
+    document.getElementById('bj-message').textContent = `Mise max : ${pvpState.capRestant} crédits`;
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/play`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ bet: selectedBet })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('bj-message').textContent = data.error || 'Erreur';
+      return;
+    }
+
+    // Mettre à jour l'état PvP
+    pvpState.netDifference = data.netDifference;
+    pvpState.capRestant = data.capRestant;
+    updatePvpStatus();
+
+    gameState.lastBet = selectedBet;
+
+    // Réutiliser renderEnded avec les données traduites
+    await renderEnded({
+      result: data.result,
+      playerCards: data.playerCards,
+      dealerCards: data.dealerCards,
+      dealerTotal: handTotalDisplay(data.dealerCards),
+      playerTotal: handTotalDisplay(data.playerCards),
+      creditsChange: data.creditsTransferred,
+      credits: data.attackerCredits
+    });
+
+    if (data.sessionClosed) {
+      document.getElementById('bj-pvp-status').textContent += ' — Session terminée (cap atteint)';
+      document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+    }
+
+  } catch (err) {
+    document.getElementById('bj-message').textContent = 'Erreur serveur';
+  }
+}
+
+// Calcul total pour l'affichage (client-side)
+function handTotalDisplay(cards) {
+  if (!cards || !cards.length) return '?';
+  let total = 0, aces = 0;
+  for (const c of cards) {
+    if (['J','Q','K'].includes(c)) total += 10;
+    else if (c === 'A') { total += 11; aces++; }
+    else total += parseInt(c);
+  }
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  return total;
+}
+
+// Notifications PvP
+async function loadPvpNotifications() {
+  try {
+    const res = await fetch(`${API_URL}/pvp/notifications`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    const notifs = await res.json();
+    if (!notifs.length) return;
+
+    const container = document.getElementById('bj-pvp-notifs');
+    if (!container) return;
+    container.innerHTML = notifs.map(n => `<div class="pvp-notif">🔔 ${n.message}</div>`).join('');
+    container.style.display = 'block';
+  } catch (err) {}
+}
+
+// Charger les notifs au démarrage
+document.addEventListener('DOMContentLoaded', () => {
+  initBlackjack();
+  loadPvpNotifications();
+});
+

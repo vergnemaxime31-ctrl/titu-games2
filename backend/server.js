@@ -19,6 +19,8 @@ app.use('/api/blackjack', blackjackRoutes);
 app.use('/api/users', require('./routes/users'));
 app.use('/api/sports', require('./routes/sports'));
 app.use('/api/custom-bets', require('./routes/customBets'));
+const pvpRoutes = require('./routes/pvp');
+app.use('/api/pvp', pvpRoutes);
 
 
 // Connexion MongoDB
