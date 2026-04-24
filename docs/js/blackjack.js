@@ -228,7 +228,7 @@ async function bjConfirmBet() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/play`, {
+      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/hand`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
