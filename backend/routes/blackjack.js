@@ -63,9 +63,7 @@ async function resolveSplit(game, res) {
   game.markModified('deck');
   game.markModified('dealerCards');
 
-  const user = await User.findById(game.userId);
-
-  const resolveHand = (handCards) => {
+  const resolveOneHand = (handCards) => {
     const total = calculateTotal(handCards);
     if (total > 21) return { result: 'lose', change: -game.bet };
     if (dealerTotal > 21 || total > dealerTotal) return { result: 'win', change: game.bet };
@@ -73,23 +71,25 @@ async function resolveSplit(game, res) {
     return { result: 'lose', change: -game.bet };
   };
 
-  const h1 = resolveHand(game.hand1Cards);
-  const h2 = resolveHand(game.hand2Cards);
+  const h1 = resolveOneHand(game.hand1Cards);
+  const h2 = resolveOneHand(game.hand2Cards);
   const totalChange = h1.change + h2.change;
 
   // On a déjà débité bet*2 au total (bet au start + bet au split)
-  // On rembourse bet*2 + gains/pertes
-  user.credits += game.bet * 2 + totalChange;
-
-  user.notifications.push({
-    message: `Split - M1: ${h1.result} (${h1.change >= 0 ? '+' : ''}${h1.change}), M2: ${h2.result} (${h2.change >= 0 ? '+' : ''}${h2.change})`
+  // On rembourse bet*2 + gains/pertes (atomique)
+  const creditsDelta = game.bet * 2 + totalChange;
+  const notifMsg = `Split - M1: ${h1.result} (${h1.change >= 0 ? '+' : ''}${h1.change}), M2: ${h2.result} (${h2.change >= 0 ? '+' : ''}${h2.change})`;
+  await User.updateOne({ _id: game.userId }, {
+    $inc: { credits: creditsDelta },
+    $push: { notifications: { message: notifMsg } }
   });
-  await user.save();
 
   game.result = 'split';
   game.creditsChange = totalChange;
   game.dealerTotal = dealerTotal;
   await game.save();
+
+  const user = await User.findById(game.userId).select('credits');
 
   return res.json({
     dealerCards,
@@ -129,7 +129,17 @@ router.post('/start', auth, async (req, res) => {
     let creditsChange = 0;
     user.credits -= bet;
 
-    if (checkBlackjack(playerCards)) {
+    const playerBJ = checkBlackjack(playerCards);
+    const dealerFullCards = [dealerCards[0], dealerHiddenCard];
+    const dealerBJ = checkBlackjack(dealerFullCards);
+
+    if (playerBJ && dealerBJ) {
+      // Les deux ont blackjack = push
+      result = 'push';
+      creditsChange = 0;
+      user.credits += bet; // rembourser la mise
+      user.notifications.push({ message: `Blackjack - Égalité ! (double blackjack)` });
+    } else if (playerBJ) {
       result = 'blackjack';
       creditsChange = Math.floor(bet * 1.5);
       user.credits += bet + creditsChange;
@@ -156,15 +166,25 @@ router.post('/start', auth, async (req, res) => {
       hand2Done: false
     });
 
-    res.json({
+    // Construire la réponse — ne JAMAIS envoyer la carte cachée en phase playing
+    const response = {
       gameId: game._id,
       playerCards,
-      dealerCards,
+      dealerCards, // contient [carte_visible, '?']
       playerTotal,
       canSplit: canSplit(playerCards),
       result,
       credits: user.credits
-    });
+    };
+
+    // Si la main est terminée (blackjack), révéler les cartes du dealer
+    if (result !== 'ongoing') {
+      response.dealerCards = dealerFullCards;
+      response.dealerTotal = calculateTotal(dealerFullCards);
+      response.creditsChange = creditsChange;
+    }
+
+    res.json(response);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -236,14 +256,16 @@ router.post('/hit', auth, async (req, res) => {
       game.result = 'lose';
       game.creditsChange = -game.bet;
       await game.save();
-      const user = await User.findById(req.user.id);
-      user.notifications.push({ message: `Blackjack - Perdu ! -${game.bet} crédits` });
-      await user.save();
+      // Crédit déjà débité au /start, pas de mouvement supplémentaire
+      await User.updateOne({ _id: req.user.id }, {
+        $push: { notifications: { message: `Blackjack - Perdu ! -${game.bet} crédits` } }
+      });
+      const user = await User.findById(req.user.id).select('credits');
       return res.json({ playerCards, playerTotal, result: 'lose', creditsChange: -game.bet, credits: user.credits });
     }
 
     await game.save();
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('credits');
     res.json({ playerCards, playerTotal, result: 'ongoing', credits: user.credits });
 
   } catch (err) {
@@ -301,20 +323,22 @@ router.post('/stand', auth, async (req, res) => {
     else if (playerTotal < dealerTotal) { result = 'lose'; creditsChange = -game.bet; }
     else { result = 'push'; }
 
-    const user = await User.findById(req.user.id);
-    user.credits += game.bet + creditsChange;
-    user.notifications.push({
-      message: result === 'win' ? `Blackjack - Gagné ! +${creditsChange} crédits`
-              : result === 'lose' ? `Blackjack - Perdu ! -${Math.abs(creditsChange)} crédits`
-              : `Blackjack - Égalité !`
+    // Rembourser la mise + gains (atomique)
+    const creditsDelta = game.bet + creditsChange;
+    const notifMessage = result === 'win' ? `Blackjack - Gagné ! +${creditsChange} crédits`
+            : result === 'lose' ? `Blackjack - Perdu ! -${Math.abs(creditsChange)} crédits`
+            : `Blackjack - Égalité !`;
+    await User.updateOne({ _id: req.user.id }, {
+      $inc: { credits: creditsDelta },
+      $push: { notifications: { message: notifMessage } }
     });
-    await user.save();
 
     game.dealerTotal = dealerTotal;
     game.result = result;
     game.creditsChange = creditsChange;
     await game.save();
 
+    const user = await User.findById(req.user.id).select('credits');
     res.json({ playerCards: game.playerCards, dealerCards, playerTotal, dealerTotal, result, creditsChange, credits: user.credits });
 
   } catch (err) {
@@ -376,7 +400,8 @@ router.post('/double', auth, async (req, res) => {
     if (game.playerCards.length !== 2)
       return res.status(400).json({ message: 'Double uniquement sur 2 cartes' });
 
-    user.credits -= game.bet;
+    // Débiter le supplément de mise (atomique)
+    await User.updateOne({ _id: req.user.id }, { $inc: { credits: -game.bet } });
     game.bet *= 2;
 
     const newCard = deck.pop();
@@ -391,10 +416,14 @@ router.post('/double', auth, async (req, res) => {
       game.creditsChange = -game.bet;
       game.deck = deck;
       game.markModified('deck');
-      user.notifications.push({ message: `Blackjack - Perdu (double) ! -${game.bet} crédits` });
-      await user.save();
       await game.save();
-      return res.json({ playerCards, dealerCards: game.dealerCards, playerTotal, dealerTotal: '?', result: 'lose', creditsChange: game.creditsChange, credits: user.credits });
+      // Pas de remboursement — les 2 mises sont perdues (déjà débitées)
+      await User.updateOne({ _id: req.user.id }, {
+        $push: { notifications: { message: `Blackjack - Perdu (double) ! -${game.bet} crédits` } }
+      });
+      const updatedUser = await User.findById(req.user.id).select('credits');
+      // Ne pas envoyer la carte cachée du dealer sur bust
+      return res.json({ playerCards, playerTotal, result: 'lose', creditsChange: game.creditsChange, credits: updatedUser.credits });
     }
 
     const dealerCards = [...game.dealerCards];
@@ -412,20 +441,23 @@ router.post('/double', auth, async (req, res) => {
     else if (playerTotal < dealerTotal) { result = 'lose'; creditsChange = -game.bet; }
     else { result = 'push'; }
 
-    user.credits += game.bet + creditsChange;
-    user.notifications.push({
-      message: result === 'win' ? `Blackjack - Gagné (double) ! +${creditsChange} crédits`
-              : result === 'lose' ? `Blackjack - Perdu (double) ! -${Math.abs(creditsChange)} crédits`
-              : `Blackjack - Égalité !`
+    // Rembourser mise + gains (atomique)
+    const creditsDelta = game.bet + creditsChange;
+    const notifMsg = result === 'win' ? `Blackjack - Gagné (double) ! +${creditsChange} crédits`
+            : result === 'lose' ? `Blackjack - Perdu (double) ! -${Math.abs(creditsChange)} crédits`
+            : `Blackjack - Égalité !`;
+    await User.updateOne({ _id: req.user.id }, {
+      $inc: { credits: creditsDelta },
+      $push: { notifications: { message: notifMsg } }
     });
-    await user.save();
 
     game.dealerTotal = dealerTotal;
     game.result = result;
     game.creditsChange = creditsChange;
     await game.save();
 
-    res.json({ playerCards, dealerCards, playerTotal, dealerTotal, result, creditsChange, credits: user.credits });
+    const updatedUser = await User.findById(req.user.id).select('credits');
+    res.json({ playerCards, dealerCards, playerTotal, dealerTotal, result, creditsChange, credits: updatedUser.credits });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -480,7 +512,10 @@ router.post('/split', auth, async (req, res) => {
 // GET /api/blackjack/history
 router.get('/history', auth, async (req, res) => {
   try {
-    const games = await BlackjackGame.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(10);
+    const games = await BlackjackGame.find({ userId: req.user.id })
+      .select('bet playerCards dealerCards playerTotal dealerTotal result creditsChange splitActive hand1Cards hand2Cards createdAt')
+      .sort({ createdAt: -1 })
+      .limit(10);
     res.json(games);
   } catch (err) {
     res.status(500).json({ message: err.message });

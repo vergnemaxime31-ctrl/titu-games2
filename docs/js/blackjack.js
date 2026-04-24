@@ -90,13 +90,19 @@ async function renderPlaying(data) {
 
   setActionButtonsEnabled(true);
 
-  document.getElementById('bj-btn-double').style.display = 'block';
-  document.getElementById('bj-btn-double').disabled = false;
-
-  if (data.canSplit) {
-    document.getElementById('bj-btn-split').style.display = 'block';
-  } else {
+  // En mode PvP, pas de double ni split
+  if (pvpState.active && pvpState.sessionId) {
+    document.getElementById('bj-btn-double').style.display = 'none';
     document.getElementById('bj-btn-split').style.display = 'none';
+  } else {
+    document.getElementById('bj-btn-double').style.display = 'block';
+    document.getElementById('bj-btn-double').disabled = false;
+
+    if (data.canSplit) {
+      document.getElementById('bj-btn-split').style.display = 'block';
+    } else {
+      document.getElementById('bj-btn-split').style.display = 'none';
+    }
   }
 }
 
@@ -106,18 +112,21 @@ async function renderEnded(data) {
   document.getElementById('bj-action-area').style.display = 'none';
   document.getElementById('bj-bet-area').style.display = 'none';
 
-  const dealerCards = data.dealerCards ?? ['?'];
+  const dealerCards = data.dealerCards ?? [];
   const dealerArea = document.getElementById('bj-dealer-cards');
-  dealerArea.innerHTML = '';
 
-  for (let i = 0; i < dealerCards.length; i++) {
-    dealerArea.appendChild(createCardElement(dealerCards[i]));
-    if (i >= 1) {
-      await delay(DEAL_DELAY);
+  // Seulement réafficher les cartes du dealer si on a de vraies cartes à montrer
+  if (dealerCards.length > 0 && dealerCards.some(c => c !== '?')) {
+    dealerArea.innerHTML = '';
+    for (let i = 0; i < dealerCards.length; i++) {
+      dealerArea.appendChild(createCardElement(dealerCards[i]));
+      if (i >= 1) {
+        await delay(DEAL_DELAY);
+      }
     }
   }
 
-  document.getElementById('bj-dealer-total').textContent = data.dealerTotal ? `Croupier : ${data.dealerTotal}` : '';
+  document.getElementById('bj-dealer-total').textContent = data.dealerTotal && data.dealerTotal !== '?' ? `Croupier : ${data.dealerTotal}` : '';
 
   const msg = document.getElementById('bj-message');
 
@@ -141,9 +150,12 @@ async function renderEnded(data) {
     } else if (data.result === 'win') {
       msg.textContent = `✅ Gagné ! +${data.creditsChange} crédits`;
       msg.className = 'bj-message win';
-    } else if (data.result === 'lose') {
-      msg.textContent = `❌ Perdu ! -${Math.abs(data.creditsChange)} crédits`;
+    } else if (data.result === 'lose' || data.result === 'bust') {
+      msg.textContent = `❌ Perdu ! -${Math.abs(data.creditsChange || 0)} crédits`;
       msg.className = 'bj-message lose';
+    } else if (data.result === 'push') {
+      msg.textContent = '🤝 Égalité !';
+      msg.className = 'bj-message push';
     } else {
       msg.textContent = '🤝 Égalité !';
       msg.className = 'bj-message push';
@@ -228,7 +240,7 @@ async function bjConfirmBet() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/hand`, {
+      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/deal`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,37 +254,46 @@ async function bjConfirmBet() {
         return;
       }
 
-      pvpState.netDifference = data.netDifference;
-      pvpState.capRestant = data.capRestant;
-      updatePvpStatus();
       gameState.lastBet = selectedBet;
 
-      // Animer la distribution avant le résultat
+      // Si blackjack naturel, le serveur résout immédiatement
+      if (data.phase === 'ended') {
+        pvpState.netDifference = data.netDifference;
+        pvpState.capRestant = data.capRestant;
+        updatePvpStatus();
+
+        // Animer la distribution puis le résultat
+        await renderPlaying({
+          playerCards: data.playerCards,
+          dealerCards: [data.dealerCards[0], '?'],
+          playerTotal: data.playerTotal,
+          canSplit: false
+        });
+        await delay(600);
+        await renderEnded({
+          result: data.result,
+          playerCards: data.playerCards,
+          dealerCards: data.dealerCards,
+          dealerTotal: data.dealerTotal,
+          playerTotal: data.playerTotal,
+          creditsChange: data.creditsTransferred,
+          credits: data.attackerCredits
+        });
+        if (data.sessionClosed) {
+          document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
+          document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+        }
+        return;
+      }
+
+      // Phase playing — afficher les cartes et laisser le joueur interagir
       await renderPlaying({
         playerCards: data.playerCards,
-        dealerCards: [data.dealerCards[0], '?'],
-        playerTotal: handTotalDisplay(data.playerCards),
+        dealerCards: [data.dealerVisibleCard, '?'],
+        playerTotal: data.playerTotal,
         canSplit: false
       });
 
-      // Pause pour que le joueur voie ses cartes
-      await delay(800);
-
-      // Révéler le résultat final
-      await renderEnded({
-        result: data.result,
-        playerCards: data.playerCards,
-        dealerCards: data.dealerCards,
-        dealerTotal: handTotalDisplay(data.dealerCards),
-        playerTotal: handTotalDisplay(data.playerCards),
-        creditsChange: data.creditsTransferred,
-        credits: data.attackerCredits
-      });
-
-      if (data.sessionClosed) {
-        document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
-        document.getElementById('bj-pvp-btn-quit').style.display = 'none';
-      }
     } catch (err) {
       document.getElementById('bj-message').textContent = 'Erreur serveur';
     }
@@ -307,8 +328,8 @@ async function bjConfirmBet() {
     gameState.lastBet = selectedBet;
     updateCreditsDisplay(data.credits);
 
-    if (data.result === 'blackjack') {
-      // Animer la distribution puis afficher le blackjack
+    if (data.result && data.result !== 'ongoing') {
+      // Blackjack ou push (double BJ) — animer la distribution puis afficher le résultat
       await renderPlaying({
         playerCards: data.playerCards,
         dealerCards: [data.dealerCards[0], '?'],
@@ -316,11 +337,7 @@ async function bjConfirmBet() {
         canSplit: false
       });
       await delay(600);
-      await renderEnded({
-        ...data,
-        dealerCards: data.dealerCards ?? ['?', '?'],
-        dealerTotal: data.dealerTotal ?? '?'
-      });
+      await renderEnded(data);
     } else {
       await renderPlaying(data);
     }
@@ -330,6 +347,61 @@ async function bjConfirmBet() {
 }
 
 async function bjHit() {
+  // ===== MODE PVP =====
+  if (pvpState.active && pvpState.sessionId) {
+    try {
+      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/hit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('bj-message').textContent = data.error || 'Erreur';
+        return;
+      }
+
+      if (data.phase === 'ended') {
+        // Bust ou fin de main
+        pvpState.netDifference = data.netDifference;
+        pvpState.capRestant = data.capRestant;
+        updatePvpStatus();
+
+        // Mettre à jour les cartes du joueur avant de montrer le résultat
+        updatePlayerCards(data.playerCards, 1);
+        document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
+        await delay(400);
+
+        await renderEnded({
+          result: data.result,
+          playerCards: data.playerCards,
+          dealerCards: data.dealerCards,
+          dealerTotal: data.dealerTotal,
+          playerTotal: data.playerTotal,
+          creditsChange: data.creditsTransferred,
+          credits: data.attackerCredits
+        });
+        if (data.sessionClosed) {
+          document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
+          document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+        }
+        return;
+      }
+
+      // Still playing
+      updatePlayerCards(data.playerCards, 1);
+      document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
+      document.getElementById('bj-btn-double').style.display = 'none';
+      document.getElementById('bj-btn-split').style.display = 'none';
+    } catch (err) {
+      document.getElementById('bj-message').textContent = 'Erreur serveur';
+    }
+    return;
+  }
+
+  // ===== MODE NORMAL =====
   try {
     const res = await fetch(`${API_URL}/blackjack/hit`, {
       method: 'POST',
@@ -390,6 +462,47 @@ async function bjHit() {
 }
 
 async function bjStand() {
+  // ===== MODE PVP =====
+  if (pvpState.active && pvpState.sessionId) {
+    try {
+      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/stand`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('bj-message').textContent = data.error || 'Erreur';
+        return;
+      }
+
+      pvpState.netDifference = data.netDifference;
+      pvpState.capRestant = data.capRestant;
+      updatePvpStatus();
+
+      await renderEnded({
+        result: data.result,
+        playerCards: data.playerCards,
+        dealerCards: data.dealerCards,
+        dealerTotal: data.dealerTotal,
+        playerTotal: data.playerTotal,
+        creditsChange: data.creditsTransferred,
+        credits: data.attackerCredits
+      });
+
+      if (data.sessionClosed) {
+        document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
+        document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+      }
+    } catch (err) {
+      document.getElementById('bj-message').textContent = 'Erreur serveur';
+    }
+    return;
+  }
+
+  // ===== MODE NORMAL =====
   try {
     const res = await fetch(`${API_URL}/blackjack/stand`, {
       method: 'POST',

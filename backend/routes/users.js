@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const SportBet = require('../models/SportBet');
+const CustomBet = require('../models/CustomBet');
 const auth = require('../middleware/auth');
 
 // GET /api/users/leaderboard

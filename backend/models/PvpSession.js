@@ -9,6 +9,16 @@ const HandSchema = new mongoose.Schema({
   creditsTransferred: Number, // + = A a gagné, - = A a perdu
 }, { _id: false });
 
+// État de la main en cours (côté serveur uniquement)
+const CurrentHandSchema = new mongoose.Schema({
+  bet: { type: Number, required: true },
+  deck: { type: [String], default: [] },
+  playerCards: { type: [String], default: [] },
+  dealerCards: { type: [String], default: [] },       // toutes les cartes dealer (visibles + cachée)
+  dealerHiddenCard: { type: String, default: '' },     // 2e carte du dealer (cachée côté client)
+  phase: { type: String, enum: ['playing', 'ended'], default: 'playing' }
+}, { _id: false });
+
 const PvpSessionSchema = new mongoose.Schema({
   attackerId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -38,6 +48,7 @@ const PvpSessionSchema = new mongoose.Schema({
     default: 'active' 
   },
   hands: [HandSchema],
+  currentHand: { type: CurrentHandSchema, default: null },
   createdAt: { type: Date, default: Date.now },
   closedAt: { type: Date }
 });

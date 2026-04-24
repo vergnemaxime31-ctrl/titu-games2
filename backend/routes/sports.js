@@ -74,7 +74,7 @@ router.get('/bets', auth, async (req, res) => {
 });
 
 // POST /api/sports/resolve/:matchId - résoudre un match (admin)
-router.post('/resolve/:matchId', async (req, res) => {
+router.post('/resolve/:matchId', auth, async (req, res) => {
   try {
     const { result, scoreHome, scoreAway } = req.body; // result: '1','N','2'
     const match = await Match.findById(req.params.matchId);
@@ -111,7 +111,7 @@ router.post('/resolve/:matchId', async (req, res) => {
 });
 
 // POST /api/sports/matches - créer un match manuellement (admin)
-router.post('/matches', async (req, res) => {
+router.post('/matches', auth, async (req, res) => {
   try {
     const { homeTeam, awayTeam, league, matchDate, odds } = req.body;
 
@@ -137,21 +137,34 @@ router.post('/matches', async (req, res) => {
   }
 });
 
-// Supprimer un match
-router.delete('/matches/:matchId', async (req, res) => {
-  await Match.findByIdAndDelete(req.params.matchId);
-  res.json({ message: 'Match supprimé' });
+// Supprimer un match (admin)
+router.delete('/matches/:matchId', auth, async (req, res) => {
+  try {
+    await Match.findByIdAndDelete(req.params.matchId);
+    res.json({ message: 'Match supprimé' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
-// Supprimer tous les matchs
-router.delete('/matches', async (req, res) => {
-  await Match.deleteMany({});
-  res.json({ message: 'Tous les matchs supprimés' });
+// Supprimer tous les matchs (admin)
+router.delete('/matches', auth, async (req, res) => {
+  try {
+    await Match.deleteMany({});
+    res.json({ message: 'Tous les matchs supprimés' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
-router.delete('/bets', async (req, res) => {
-  await SportBet.deleteMany({});
-  res.json({ message: 'Tous les paris supprimés' });
+// Supprimer tous les paris (admin)
+router.delete('/bets', auth, async (req, res) => {
+  try {
+    await SportBet.deleteMany({});
+    res.json({ message: 'Tous les paris supprimés' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 

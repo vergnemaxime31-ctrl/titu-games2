@@ -9,46 +9,157 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function cardValue(card) {
-  if (['J', 'Q', 'K'].includes(card)) return 10;
-  if (card === 'A') return 11;
-  return parseInt(card);
+// ============ BLACKJACK HELPERS (PvP) ============
+
+function createDeck(numDecks = 6) {
+  const suits = ['♠', '♥', '♦', '♣'];
+  const values = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const deck = [];
+  for (let d = 0; d < numDecks; d++)
+    for (const suit of suits)
+      for (const value of values)
+        deck.push(`${value}${suit}`);
+  // Shuffle (Fisher-Yates)
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
 }
 
-function handTotal(cards) {
+function getCardValue(card) {
+  const value = card.slice(0, -1);
+  if (['J', 'Q', 'K'].includes(value)) return 10;
+  if (value === 'A') return 11;
+  return parseInt(value);
+}
+
+function calculateTotal(cards) {
   let total = 0, aces = 0;
   for (const card of cards) {
-    total += cardValue(card);
-    if (card === 'A') aces++;
+    if (card === '?') continue;
+    total += getCardValue(card);
+    if (card.startsWith('A')) aces++;
   }
   while (total > 21 && aces > 0) { total -= 10; aces--; }
   return total;
 }
 
-function drawCard() {
-  const cards = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-  return cards[Math.floor(Math.random() * cards.length)];
+function checkBlackjack(cards) {
+  return cards.length === 2 && calculateTotal(cards) === 21;
 }
 
-function playHand(bet) {
-  const playerCards = [drawCard(), drawCard()];
-  const dealerCards = [drawCard(), drawCard()];
+/**
+ * Resolve the hand: dealer draws to 17, determine result, apply credits.
+ * Returns the result object (does NOT send response).
+ */
+async function resolveHand(pvpSession, session) {
+  const hand = pvpSession.currentHand;
+  const deck = [...hand.deck];
+  const dealerCards = [...hand.dealerCards];
+  const playerCards = [...hand.playerCards];
+  const bet = hand.bet;
 
-  if (handTotal(playerCards) === 21) {
-    return { result: 'blackjack', creditsTransferred: Math.floor(bet * 2.5), playerCards, dealerCards };
+  // Dealer draws to 17
+  let dealerTotal = calculateTotal(dealerCards);
+  while (dealerTotal < 17) {
+    dealerCards.push(deck.pop());
+    dealerTotal = calculateTotal(dealerCards);
   }
 
-  let playerTotal = handTotal(playerCards);
-  let dealerTotal = handTotal(dealerCards);
+  const playerTotal = calculateTotal(playerCards);
 
-  while (playerTotal < 17) { playerCards.push(drawCard()); playerTotal = handTotal(playerCards); }
-  while (dealerTotal < 17) { dealerCards.push(drawCard()); dealerTotal = handTotal(dealerCards); }
+  let result, creditsTransferred;
+  if (playerTotal > 21) {
+    result = 'bust';
+    creditsTransferred = -bet;
+  } else if (checkBlackjack(playerCards)) {
+    // Blackjack naturel
+    if (checkBlackjack(dealerCards)) {
+      result = 'push';
+      creditsTransferred = 0;
+    } else {
+      result = 'blackjack';
+      creditsTransferred = Math.floor(bet * 1.5);
+    }
+  } else if (dealerTotal > 21) {
+    result = 'win';
+    creditsTransferred = bet;
+  } else if (playerTotal > dealerTotal) {
+    result = 'win';
+    creditsTransferred = bet;
+  } else if (playerTotal === dealerTotal) {
+    result = 'push';
+    creditsTransferred = 0;
+  } else {
+    result = 'lose';
+    creditsTransferred = -bet;
+  }
 
-  if (playerTotal > 21) return { result: 'bust', creditsTransferred: -bet, playerCards, dealerCards };
-  if (dealerTotal > 21 || playerTotal > dealerTotal) return { result: 'win', creditsTransferred: bet, playerCards, dealerCards };
-  if (playerTotal === dealerTotal) return { result: 'push', creditsTransferred: 0, playerCards, dealerCards };
-  return { result: 'lose', creditsTransferred: -bet, playerCards, dealerCards };
+  // Apply credits atomically using $inc
+  const attacker = await User.findById(pvpSession.attackerId);
+  const target = await User.findById(pvpSession.targetId);
+  if (!attacker || !target) throw new Error('Joueur introuvable');
+
+  // Validate sufficient credits before transfer
+  if (creditsTransferred > 0 && target.credits < creditsTransferred) {
+    // Target can't pay full amount, cap it
+    creditsTransferred = target.credits;
+  }
+  if (creditsTransferred < 0 && attacker.credits < Math.abs(creditsTransferred)) {
+    // Attacker can't pay full amount, cap it
+    creditsTransferred = -attacker.credits;
+  }
+
+  if (creditsTransferred !== 0) {
+    await User.updateOne({ _id: pvpSession.attackerId }, { $inc: { credits: creditsTransferred } });
+    await User.updateOne({ _id: pvpSession.targetId }, { $inc: { credits: -creditsTransferred } });
+  }
+
+  // Record hand in history
+  pvpSession.hands.push({ bet, result, creditsTransferred });
+  pvpSession.netDifference += creditsTransferred;
+
+  // Check if cap reached
+  const newCapRestant = pvpSession.cap - Math.abs(pvpSession.netDifference);
+  let sessionClosed = false;
+  if (newCapRestant <= 0) {
+    pvpSession.status = 'closed';
+    pvpSession.closedAt = new Date();
+    sessionClosed = true;
+  }
+
+  // Clear current hand
+  pvpSession.currentHand = null;
+  pvpSession.markModified('currentHand');
+  await pvpSession.save();
+
+  // Notification to target
+  const notifMessage = creditsTransferred > 0
+    ? `⚔️ ${attacker.username} t'a attaqué et t'a pris ${creditsTransferred} crédits !`
+    : creditsTransferred < 0
+      ? `⚔️ ${attacker.username} t'a attaqué mais a perdu ${Math.abs(creditsTransferred)} crédits !`
+      : `⚔️ ${attacker.username} t'a attaqué, égalité !`;
+  await User.updateOne({ _id: pvpSession.targetId }, { $push: { notifications: { message: notifMessage } } });
+
+  // Reload attacker credits for response
+  const updatedAttacker = await User.findById(pvpSession.attackerId).select('credits');
+
+  return {
+    result,
+    playerCards,
+    playerTotal,
+    dealerCards,
+    dealerTotal,
+    creditsTransferred,
+    netDifference: pvpSession.netDifference,
+    capRestant: Math.max(0, newCapRestant),
+    sessionClosed,
+    attackerCredits: updatedAttacker.credits
+  };
 }
+
+// ============ ROUTES ============
 
 // GET /api/pvp/targets
 router.get('/targets', auth, async (req, res) => {
@@ -67,8 +178,6 @@ router.get('/targets', auth, async (req, res) => {
 
 // POST /api/pvp/start
 router.post('/start', auth, async (req, res) => {
-  console.log('BODY:', req.body);
-  console.log('targetId:', req.body.targetId);
   try {
     const { targetId } = req.body;
     const today = todayString();
@@ -88,11 +197,10 @@ router.post('/start', auth, async (req, res) => {
     console.error('PVP START ERROR:', err.message, err.code);
     res.status(500).json({ error: err.message });
   }
-
 });
 
-// POST /api/pvp/session/:id/hand
-router.post('/session/:id/hand', auth, async (req, res) => {
+// POST /api/pvp/session/:id/deal — distribue 2 cartes joueur + 2 cartes dealer
+router.post('/session/:id/deal', auth, async (req, res) => {
   try {
     const { bet } = req.body;
     const pvpSession = await PvpSession.findById(req.params.id);
@@ -100,53 +208,132 @@ router.post('/session/:id/hand', auth, async (req, res) => {
     if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
     if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
     if (pvpSession.status === 'closed') return res.status(400).json({ error: 'Session fermée' });
+    if (pvpSession.currentHand) return res.status(400).json({ error: 'Une main est déjà en cours, terminez-la d\'abord' });
+
+    if (!bet || bet <= 0) return res.status(400).json({ error: 'Mise invalide' });
 
     const capRestant = pvpSession.cap - Math.abs(pvpSession.netDifference);
     if (bet > capRestant) return res.status(400).json({ error: `Mise trop élevée, cap restant : ${capRestant}` });
 
+    // Validate attacker has enough credits
     const attacker = await User.findById(pvpSession.attackerId);
-    const target = await User.findById(pvpSession.targetId);
-    if (!attacker || !target) throw new Error('Joueur introuvable');
+    if (!attacker) return res.status(404).json({ error: 'Joueur introuvable' });
+    if (attacker.credits < bet) return res.status(400).json({ error: 'Tu n\'as pas assez de crédits' });
 
-    const hand = playHand(bet);
-    const { creditsTransferred } = hand;
+    // Create deck and deal
+    const deck = createDeck();
+    const playerCards = [deck.pop(), deck.pop()];
+    const dealerCard1 = deck.pop();
+    const dealerHiddenCard = deck.pop();
+    const dealerCards = [dealerCard1, dealerHiddenCard];
 
-    if (creditsTransferred > 0 && target.credits < creditsTransferred)
-      return res.status(400).json({ error: 'La cible n\'a plus assez de crédits' });
-    if (creditsTransferred < 0 && attacker.credits < Math.abs(creditsTransferred))
-      return res.status(400).json({ error: 'Tu n\'as pas assez de crédits' });
+    const playerTotal = calculateTotal(playerCards);
+    const isBlackjack = checkBlackjack(playerCards);
 
-    await User.updateOne({ _id: pvpSession.attackerId }, { $inc: { credits: creditsTransferred } });
-    await User.updateOne({ _id: pvpSession.targetId }, { $inc: { credits: -creditsTransferred } });
-
-    pvpSession.hands.push({ bet, result: hand.result, creditsTransferred });
-    pvpSession.netDifference += creditsTransferred;
-
-    const newCapRestant = pvpSession.cap - Math.abs(pvpSession.netDifference);
-    let sessionClosed = false;
-    if (newCapRestant <= 0) {
-      pvpSession.status = 'closed';
-      pvpSession.closedAt = new Date();
-      sessionClosed = true;
-    }
-
+    // Store hand state server-side
+    pvpSession.currentHand = {
+      bet,
+      deck,
+      playerCards,
+      dealerCards,
+      dealerHiddenCard,
+      phase: 'playing'
+    };
+    pvpSession.markModified('currentHand');
     await pvpSession.save();
 
-    const notifMessage = creditsTransferred > 0
-      ? `⚔️ ${attacker.username} t'a attaqué et t'a pris ${creditsTransferred} crédits !`
-      : creditsTransferred < 0
-        ? `⚔️ ${attacker.username} t'a attaqué mais a perdu ${Math.abs(creditsTransferred)} crédits !`
-        : `⚔️ ${attacker.username} t'a attaqué, égalité !`;
+    // If player has blackjack, resolve immediately
+    if (isBlackjack) {
+      const result = await resolveHand(pvpSession);
+      return res.json({
+        phase: 'ended',
+        ...result
+      });
+    }
 
-    await User.updateOne({ _id: pvpSession.targetId }, { $push: { notifications: { message: notifMessage } } });
-
-    res.json({ result: hand.result, playerCards: hand.playerCards, dealerCards: hand.dealerCards, creditsTransferred, netDifference: pvpSession.netDifference, capRestant: newCapRestant, sessionClosed });
+    // Return initial state — NEVER send the hidden card
+    res.json({
+      phase: 'playing',
+      playerCards,
+      playerTotal,
+      dealerVisibleCard: dealerCard1,
+      dealerTotal: getCardValue(dealerCard1)
+    });
   } catch (err) {
-    console.error('PVP HAND ERROR:', err.message);
+    console.error('PVP DEAL ERROR:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
+// POST /api/pvp/session/:id/hit — ajoute une carte au joueur
+router.post('/session/:id/hit', auth, async (req, res) => {
+  try {
+    const pvpSession = await PvpSession.findById(req.params.id);
+
+    if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
+    if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
+    if (pvpSession.status === 'closed') return res.status(400).json({ error: 'Session fermée' });
+    if (!pvpSession.currentHand) return res.status(400).json({ error: 'Aucune main en cours. Faites /deal d\'abord' });
+    if (pvpSession.currentHand.phase !== 'playing') return res.status(400).json({ error: 'Main déjà terminée' });
+
+    const hand = pvpSession.currentHand;
+    const deck = [...hand.deck];
+    const playerCards = [...hand.playerCards];
+
+    // Draw a card
+    const newCard = deck.pop();
+    playerCards.push(newCard);
+
+    const playerTotal = calculateTotal(playerCards);
+
+    // Update state
+    pvpSession.currentHand.deck = deck;
+    pvpSession.currentHand.playerCards = playerCards;
+    pvpSession.markModified('currentHand');
+    await pvpSession.save();
+
+    // Check bust
+    if (playerTotal > 21) {
+      const result = await resolveHand(pvpSession);
+      return res.json({
+        phase: 'ended',
+        ...result
+      });
+    }
+
+    res.json({
+      phase: 'playing',
+      playerCards,
+      playerTotal,
+      newCard
+    });
+  } catch (err) {
+    console.error('PVP HIT ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/pvp/session/:id/stand — le joueur reste, le dealer joue
+router.post('/session/:id/stand', auth, async (req, res) => {
+  try {
+    const pvpSession = await PvpSession.findById(req.params.id);
+
+    if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
+    if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
+    if (pvpSession.status === 'closed') return res.status(400).json({ error: 'Session fermée' });
+    if (!pvpSession.currentHand) return res.status(400).json({ error: 'Aucune main en cours. Faites /deal d\'abord' });
+    if (pvpSession.currentHand.phase !== 'playing') return res.status(400).json({ error: 'Main déjà terminée' });
+
+    const result = await resolveHand(pvpSession);
+    res.json({
+      phase: 'ended',
+      ...result
+    });
+  } catch (err) {
+    console.error('PVP STAND ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // POST /api/pvp/session/:id/quit
 router.post('/session/:id/quit', auth, async (req, res) => {
@@ -155,12 +342,69 @@ router.post('/session/:id/quit', auth, async (req, res) => {
     if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
     if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
 
+    // If there's an ongoing hand, resolve it as a stand (player forfeits the hand)
+    if (pvpSession.currentHand && pvpSession.currentHand.phase === 'playing') {
+      await resolveHand(pvpSession);
+      // Re-fetch after resolve modified the session
+      const updated = await PvpSession.findById(req.params.id);
+      updated.status = 'closed';
+      updated.closedAt = new Date();
+      await updated.save();
+      return res.json({ message: 'Session fermée', netDifference: updated.netDifference, handsPlayed: updated.hands.length });
+    }
+
     pvpSession.status = 'closed';
     pvpSession.closedAt = new Date();
     await pvpSession.save();
 
     res.json({ message: 'Session fermée', netDifference: pvpSession.netDifference, handsPlayed: pvpSession.hands.length });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== LEGACY ROUTE — kept for backward compatibility, now calls deal+auto-resolve =====
+// POST /api/pvp/session/:id/hand (auto-play, deprecated)
+router.post('/session/:id/hand', auth, async (req, res) => {
+  try {
+    const { bet } = req.body;
+    const pvpSession = await PvpSession.findById(req.params.id);
+
+    if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
+    if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
+    if (pvpSession.status === 'closed') return res.status(400).json({ error: 'Session fermée' });
+    if (pvpSession.currentHand) return res.status(400).json({ error: 'Une main est déjà en cours' });
+
+    if (!bet || bet <= 0) return res.status(400).json({ error: 'Mise invalide' });
+
+    const capRestant = pvpSession.cap - Math.abs(pvpSession.netDifference);
+    if (bet > capRestant) return res.status(400).json({ error: `Mise trop élevée, cap restant : ${capRestant}` });
+
+    const attacker = await User.findById(pvpSession.attackerId);
+    if (!attacker || attacker.credits < bet) return res.status(400).json({ error: 'Tu n\'as pas assez de crédits' });
+
+    // Create deck, deal, then immediately resolve (auto-play for legacy)
+    const deck = createDeck();
+    const playerCards = [deck.pop(), deck.pop()];
+    const dealerCard1 = deck.pop();
+    const dealerHiddenCard = deck.pop();
+    const dealerCards = [dealerCard1, dealerHiddenCard];
+
+    pvpSession.currentHand = {
+      bet,
+      deck,
+      playerCards,
+      dealerCards,
+      dealerHiddenCard,
+      phase: 'playing'
+    };
+    pvpSession.markModified('currentHand');
+    await pvpSession.save();
+
+    const result = await resolveHand(pvpSession);
+    res.json(result);
+  } catch (err) {
+    console.error('PVP HAND ERROR:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
