@@ -83,17 +83,17 @@ router.post('/start', auth, async (req, res) => {
 
     res.json({ sessionId: session._id, cap, targetUsername: target.username });
   } catch (err) {
+    console.error('PVP START ERROR:', err.message, err.code);
     res.status(500).json({ error: err.message });
   }
+
 });
 
 // POST /api/pvp/session/:id/hand
 router.post('/session/:id/hand', auth, async (req, res) => {
-  const mongoSession = await mongoose.startSession();
-  mongoSession.startTransaction();
   try {
     const { bet } = req.body;
-    const pvpSession = await PvpSession.findById(req.params.id).session(mongoSession);
+    const pvpSession = await PvpSession.findById(req.params.id);
 
     if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
     if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
@@ -102,24 +102,20 @@ router.post('/session/:id/hand', auth, async (req, res) => {
     const capRestant = pvpSession.cap - Math.abs(pvpSession.netDifference);
     if (bet > capRestant) return res.status(400).json({ error: `Mise trop élevée, cap restant : ${capRestant}` });
 
-    const attacker = await User.findById(pvpSession.attackerId).session(mongoSession);
-    const target = await User.findById(pvpSession.targetId).session(mongoSession);
+    const attacker = await User.findById(pvpSession.attackerId);
+    const target = await User.findById(pvpSession.targetId);
     if (!attacker || !target) throw new Error('Joueur introuvable');
 
     const hand = playHand(bet);
     const { creditsTransferred } = hand;
 
-    if (creditsTransferred > 0 && target.credits < creditsTransferred) {
-      await mongoSession.abortTransaction();
+    if (creditsTransferred > 0 && target.credits < creditsTransferred)
       return res.status(400).json({ error: 'La cible n\'a plus assez de crédits' });
-    }
-    if (creditsTransferred < 0 && attacker.credits < Math.abs(creditsTransferred)) {
-      await mongoSession.abortTransaction();
+    if (creditsTransferred < 0 && attacker.credits < Math.abs(creditsTransferred))
       return res.status(400).json({ error: 'Tu n\'as pas assez de crédits' });
-    }
 
-    await User.updateOne({ _id: pvpSession.attackerId }, { $inc: { credits: creditsTransferred } }, { session: mongoSession });
-    await User.updateOne({ _id: pvpSession.targetId }, { $inc: { credits: -creditsTransferred } }, { session: mongoSession });
+    await User.updateOne({ _id: pvpSession.attackerId }, { $inc: { credits: creditsTransferred } });
+    await User.updateOne({ _id: pvpSession.targetId }, { $inc: { credits: -creditsTransferred } });
 
     pvpSession.hands.push({ bet, result: hand.result, creditsTransferred });
     pvpSession.netDifference += creditsTransferred;
@@ -132,26 +128,23 @@ router.post('/session/:id/hand', auth, async (req, res) => {
       sessionClosed = true;
     }
 
-    await pvpSession.save({ session: mongoSession });
+    await pvpSession.save();
 
     const notifMessage = creditsTransferred > 0
-      ? `⚔️ ${attacker.username} t'a attaqué au blackjack et t'a pris ${creditsTransferred} crédits !`
+      ? `⚔️ ${attacker.username} t'a attaqué et t'a pris ${creditsTransferred} crédits !`
       : creditsTransferred < 0
-        ? `⚔️ ${attacker.username} t'a attaqué au blackjack mais a perdu ${Math.abs(creditsTransferred)} crédits !`
-        : `⚔️ ${attacker.username} t'a attaqué au blackjack, égalité !`;
+        ? `⚔️ ${attacker.username} t'a attaqué mais a perdu ${Math.abs(creditsTransferred)} crédits !`
+        : `⚔️ ${attacker.username} t'a attaqué, égalité !`;
 
-    await User.updateOne({ _id: pvpSession.targetId }, { $push: { notifications: { message: notifMessage } } }, { session: mongoSession });
-
-    await mongoSession.commitTransaction();
+    await User.updateOne({ _id: pvpSession.targetId }, { $push: { notifications: { message: notifMessage } } });
 
     res.json({ result: hand.result, playerCards: hand.playerCards, dealerCards: hand.dealerCards, creditsTransferred, netDifference: pvpSession.netDifference, capRestant: newCapRestant, sessionClosed });
   } catch (err) {
-    await mongoSession.abortTransaction();
+    console.error('PVP HAND ERROR:', err.message);
     res.status(500).json({ error: err.message });
-  } finally {
-    mongoSession.endSession();
   }
 });
+
 
 // POST /api/pvp/session/:id/quit
 router.post('/session/:id/quit', auth, async (req, res) => {
