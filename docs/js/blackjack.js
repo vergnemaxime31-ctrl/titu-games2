@@ -628,7 +628,7 @@ async function startPvpSession() {
   }
 
   try {
-    const res = await fetch(`${API_URL}/pvp/session/start`, {
+    const res = await fetch(`${API_URL}/pvp/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
