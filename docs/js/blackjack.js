@@ -215,22 +215,56 @@ function bjPlay() {
   renderBetting();
 }
 
-async function bjReplay() {
-  if (gameState.lastBet <= 0) return;
-  if (gameState.lastBet > gameState.credits) {
-    document.getElementById('bj-message').textContent = 'Crédits insuffisants';
-    return;
-  }
-  selectedBet = gameState.lastBet;
-  await bjConfirmBet();
-}
-
 async function bjConfirmBet() {
   if (selectedBet <= 0) {
     document.getElementById('bj-message').textContent = 'Choisissez une mise';
     return;
   }
 
+  // ===== MODE PVP =====
+  if (pvpState.active && pvpState.sessionId) {
+    if (selectedBet > pvpState.capRestant) {
+      document.getElementById('bj-message').textContent = `Mise max : ${pvpState.capRestant} crédits`;
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/play`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ bet: selectedBet })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('bj-message').textContent = data.error || 'Erreur';
+        return;
+      }
+      pvpState.netDifference = data.netDifference;
+      pvpState.capRestant = data.capRestant;
+      updatePvpStatus();
+      gameState.lastBet = selectedBet;
+      await renderEnded({
+        result: data.result,
+        playerCards: data.playerCards,
+        dealerCards: data.dealerCards,
+        dealerTotal: handTotalDisplay(data.dealerCards),
+        playerTotal: handTotalDisplay(data.playerCards),
+        creditsChange: data.creditsTransferred,
+        credits: data.attackerCredits
+      });
+      if (data.sessionClosed) {
+        document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
+        document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+      }
+    } catch (err) {
+      document.getElementById('bj-message').textContent = 'Erreur serveur';
+    }
+    return;
+  }
+
+  // ===== MODE NORMAL =====
   document.getElementById('bj-split-area').style.display = 'none';
   document.getElementById('bj-player-cards-2').innerHTML = '';
   document.getElementById('bj-player-total-2').textContent = '';
@@ -248,27 +282,24 @@ async function bjConfirmBet() {
       },
       body: JSON.stringify({ bet: selectedBet })
     });
-
     const data = await res.json();
     if (!res.ok) {
       document.getElementById('bj-message').textContent = data.message || 'Erreur';
       return;
     }
-
     gameState.gameId = data.gameId;
     gameState.lastBet = selectedBet;
     updateCreditsDisplay(data.credits);
-
     if (data.result === 'blackjack') {
       await renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?', '?'], dealerTotal: data.dealerTotal ?? '?' });
     } else {
       await renderPlaying(data);
     }
-
   } catch (err) {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
   }
 }
+
 
 async function bjHit() {
   try {
@@ -650,67 +681,6 @@ function updatePvpStatus() {
     `⚔️ ${pvpState.targetName} | Cap : ${pvpState.cap} | Restant : ${pvpState.capRestant} | Bilan : ${sign}${diff}`;
 }
 
-// Override bjConfirmBet pour injecter le mode PvP
-const _originalConfirmBet = bjConfirmBet;
-
-async function bjConfirmBet() {
-  if (!pvpState.active || !pvpState.sessionId) {
-    return _originalConfirmBet();
-  }
-
-  // Mode PvP — appel direct à notre route
-  if (selectedBet <= 0) {
-    document.getElementById('bj-message').textContent = 'Choisissez une mise';
-    return;
-  }
-  if (selectedBet > pvpState.capRestant) {
-    document.getElementById('bj-message').textContent = `Mise max : ${pvpState.capRestant} crédits`;
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/play`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ bet: selectedBet })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      document.getElementById('bj-message').textContent = data.error || 'Erreur';
-      return;
-    }
-
-    // Mettre à jour l'état PvP
-    pvpState.netDifference = data.netDifference;
-    pvpState.capRestant = data.capRestant;
-    updatePvpStatus();
-
-    gameState.lastBet = selectedBet;
-
-    // Réutiliser renderEnded avec les données traduites
-    await renderEnded({
-      result: data.result,
-      playerCards: data.playerCards,
-      dealerCards: data.dealerCards,
-      dealerTotal: handTotalDisplay(data.dealerCards),
-      playerTotal: handTotalDisplay(data.playerCards),
-      creditsChange: data.creditsTransferred,
-      credits: data.attackerCredits
-    });
-
-    if (data.sessionClosed) {
-      document.getElementById('bj-pvp-status').textContent += ' — Session terminée (cap atteint)';
-      document.getElementById('bj-pvp-btn-quit').style.display = 'none';
-    }
-
-  } catch (err) {
-    document.getElementById('bj-message').textContent = 'Erreur serveur';
-  }
-}
 
 // Calcul total pour l'affichage (client-side)
 function handTotalDisplay(cards) {
