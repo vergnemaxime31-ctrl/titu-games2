@@ -610,7 +610,7 @@ async function loadPvpTargets() {
     select.innerHTML = '<option value="">— Choisir une cible —</option>';
     targets.forEach(t => {
       const opt = document.createElement('option');
-      opt.value = t._id;
+      opt.value = t.id;
       opt.textContent = `${t.username} (${t.credits} crédits)`;
       select.appendChild(opt);
     });
