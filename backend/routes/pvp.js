@@ -67,6 +67,8 @@ router.get('/targets', auth, async (req, res) => {
 
 // POST /api/pvp/start
 router.post('/start', auth, async (req, res) => {
+  console.log('BODY:', req.body);
+  console.log('targetId:', req.body.targetId);
   try {
     const { targetId } = req.body;
     const today = todayString();
