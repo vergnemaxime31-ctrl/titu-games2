@@ -67,16 +67,13 @@ async function renderPlaying(data) {
   document.getElementById('bj-dealer-total').textContent = '';
   document.getElementById('bj-player-total').textContent = '';
 
-  // Vider les zones
   const playerArea = document.getElementById('bj-player-cards');
   const dealerArea = document.getElementById('bj-dealer-cards');
   playerArea.innerHTML = '';
   dealerArea.innerHTML = '';
 
-  // Bloquer les boutons pendant la distribution
   setActionButtonsEnabled(false);
 
-  // Distribution séquentielle : J1, C1, J2, C-cachée
   playerArea.appendChild(createCardElement(data.playerCards[0]));
   await delay(DEAL_DELAY);
 
@@ -87,13 +84,12 @@ async function renderPlaying(data) {
   document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
   await delay(DEAL_DELAY);
 
-  dealerArea.appendChild(createCardElement(data.dealerCards[1])); // '?'
+  // Toujours cacher la 2e carte du croupier pendant la phase playing
+  dealerArea.appendChild(createCardElement('?'));
   await delay(DEAL_DELAY);
 
-  // Débloquer les boutons
   setActionButtonsEnabled(true);
 
-  // Boutons
   document.getElementById('bj-btn-double').style.display = 'block';
   document.getElementById('bj-btn-double').disabled = false;
 
@@ -110,17 +106,12 @@ async function renderEnded(data) {
   document.getElementById('bj-action-area').style.display = 'none';
   document.getElementById('bj-bet-area').style.display = 'none';
 
-  // Distribution animée des cartes du croupier
   const dealerCards = data.dealerCards ?? ['?'];
   const dealerArea = document.getElementById('bj-dealer-cards');
-
-  // On récupère le nombre de cartes déjà visibles (avant la révélation)
-  // La première carte est déjà visible, on révèle à partir de la carte cachée
   dealerArea.innerHTML = '';
 
   for (let i = 0; i < dealerCards.length; i++) {
     dealerArea.appendChild(createCardElement(dealerCards[i]));
-    // Délai entre chaque carte sauf la première (déjà connue)
     if (i >= 1) {
       await delay(DEAL_DELAY);
     }
@@ -131,7 +122,6 @@ async function renderEnded(data) {
   const msg = document.getElementById('bj-message');
 
   if (gameState.splitActive && data.hand1 && data.hand2) {
-    // Résultat split
     document.getElementById('bj-split-area').style.display = 'block';
     updatePlayerCards(data.hand1.cards, 1);
     document.getElementById('bj-player-total').textContent = `Main 1 : ${data.hand1.total} — ${labelResult(data.hand1.result)}`;
@@ -215,6 +205,16 @@ function bjPlay() {
   renderBetting();
 }
 
+async function bjReplay() {
+  if (gameState.lastBet <= 0) {
+    document.getElementById('bj-message').textContent = 'Aucune mise précédente';
+    return;
+  }
+  selectedBet = gameState.lastBet;
+  document.getElementById('bj-selected-bet').textContent = selectedBet;
+  await bjConfirmBet();
+}
+
 async function bjConfirmBet() {
   if (selectedBet <= 0) {
     document.getElementById('bj-message').textContent = 'Choisissez une mise';
@@ -241,10 +241,24 @@ async function bjConfirmBet() {
         document.getElementById('bj-message').textContent = data.error || 'Erreur';
         return;
       }
+
       pvpState.netDifference = data.netDifference;
       pvpState.capRestant = data.capRestant;
       updatePvpStatus();
       gameState.lastBet = selectedBet;
+
+      // Animer la distribution avant le résultat
+      await renderPlaying({
+        playerCards: data.playerCards,
+        dealerCards: [data.dealerCards[0], '?'],
+        playerTotal: handTotalDisplay(data.playerCards),
+        canSplit: false
+      });
+
+      // Pause pour que le joueur voie ses cartes
+      await delay(800);
+
+      // Révéler le résultat final
       await renderEnded({
         result: data.result,
         playerCards: data.playerCards,
@@ -254,6 +268,7 @@ async function bjConfirmBet() {
         creditsChange: data.creditsTransferred,
         credits: data.attackerCredits
       });
+
       if (data.sessionClosed) {
         document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
         document.getElementById('bj-pvp-btn-quit').style.display = 'none';
@@ -287,11 +302,25 @@ async function bjConfirmBet() {
       document.getElementById('bj-message').textContent = data.message || 'Erreur';
       return;
     }
+
     gameState.gameId = data.gameId;
     gameState.lastBet = selectedBet;
     updateCreditsDisplay(data.credits);
+
     if (data.result === 'blackjack') {
-      await renderEnded({ ...data, dealerCards: data.dealerCards ?? ['?', '?'], dealerTotal: data.dealerTotal ?? '?' });
+      // Animer la distribution puis afficher le blackjack
+      await renderPlaying({
+        playerCards: data.playerCards,
+        dealerCards: [data.dealerCards[0], '?'],
+        playerTotal: data.playerTotal,
+        canSplit: false
+      });
+      await delay(600);
+      await renderEnded({
+        ...data,
+        dealerCards: data.dealerCards ?? ['?', '?'],
+        dealerTotal: data.dealerTotal ?? '?'
+      });
     } else {
       await renderPlaying(data);
     }
@@ -299,7 +328,6 @@ async function bjConfirmBet() {
     document.getElementById('bj-message').textContent = 'Erreur serveur';
   }
 }
-
 
 async function bjHit() {
   try {
@@ -320,14 +348,12 @@ async function bjHit() {
 
     const hand = gameState.currentHand;
 
-    // Split resolution (hand2 bust triggers resolveSplit on backend)
     if (gameState.splitActive && data.hand1 && data.hand2) {
       await renderEnded(data);
       return;
     }
 
     if (data.switchToHand2) {
-      // Main 1 bustée pendant split
       updatePlayerCards(data.hand1Cards, 1);
       document.getElementById('bj-player-total').textContent = `Total : ${data.hand1Total} — Perdu ❌`;
       gameState.currentHand = 2;
@@ -537,7 +563,7 @@ async function loadHistory() {
 
 // ============ UTILITAIRES ============
 
-const DEAL_DELAY = 600; // ms entre chaque carte
+const DEAL_DELAY = 600;
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -570,6 +596,19 @@ function updateCreditsDisplay(credits) {
   if (el) el.textContent = `Solde: ${credits} crédits`;
   const navCredits = document.querySelector('.credits');
   if (navCredits) navCredits.textContent = credits + ' crédits';
+}
+
+function handTotalDisplay(cards) {
+  if (!cards || !cards.length) return '?';
+  let total = 0, aces = 0;
+  for (const c of cards) {
+    if (c === '?' ) continue;
+    if (['J','Q','K'].includes(c)) total += 10;
+    else if (c === 'A') { total += 11; aces++; }
+    else total += parseInt(c);
+  }
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  return total;
 }
 
 // ============ MODE PVP ============
@@ -681,21 +720,8 @@ function updatePvpStatus() {
     `⚔️ ${pvpState.targetName} | Cap : ${pvpState.cap} | Restant : ${pvpState.capRestant} | Bilan : ${sign}${diff}`;
 }
 
+// ============ NOTIFICATIONS PVP ============
 
-// Calcul total pour l'affichage (client-side)
-function handTotalDisplay(cards) {
-  if (!cards || !cards.length) return '?';
-  let total = 0, aces = 0;
-  for (const c of cards) {
-    if (['J','Q','K'].includes(c)) total += 10;
-    else if (c === 'A') { total += 11; aces++; }
-    else total += parseInt(c);
-  }
-  while (total > 21 && aces > 0) { total -= 10; aces--; }
-  return total;
-}
-
-// Notifications PvP
 async function loadPvpNotifications() {
   try {
     const res = await fetch(`${API_URL}/pvp/notifications`, {
@@ -711,9 +737,9 @@ async function loadPvpNotifications() {
   } catch (err) {}
 }
 
-// Charger les notifs au démarrage
+// ============ DÉMARRAGE ============
+
 document.addEventListener('DOMContentLoaded', () => {
   initBlackjack();
   loadPvpNotifications();
 });
-
