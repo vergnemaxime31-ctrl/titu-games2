@@ -90,9 +90,10 @@ async function renderPlaying(data) {
 
   setActionButtonsEnabled(true);
 
-  // En mode PvP, pas de double ni split
   if (pvpState.active && pvpState.sessionId) {
-    document.getElementById('bj-btn-double').style.display = 'none';
+    // En PVP : pas de split, mais double autorisé (2 cartes + assez de crédits)
+    document.getElementById('bj-btn-double').style.display = 'block';
+    document.getElementById('bj-btn-double').disabled = false;
     document.getElementById('bj-btn-split').style.display = 'none';
   } else {
     document.getElementById('bj-btn-double').style.display = 'block';
@@ -145,7 +146,7 @@ async function renderEnded(data) {
     document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
 
     if (data.result === 'blackjack') {
-      msg.textContent = '🃏 Blackjack ! Vous gagnez !';
+      msg.textContent = `🃏 Blackjack ! +${data.creditsChange} crédits`;
       msg.className = 'bj-message win';
     } else if (data.result === 'win') {
       msg.textContent = `✅ Gagné ! +${data.creditsChange} crédits`;
@@ -545,6 +546,50 @@ async function bjStand() {
 }
 
 async function bjDouble() {
+  // ===== MODE PVP =====
+  if (pvpState.active && pvpState.sessionId) {
+    try {
+      const res = await fetch(`${API_URL}/pvp/session/${pvpState.sessionId}/double`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('bj-message').textContent = data.error || 'Erreur';
+        return;
+      }
+
+      pvpState.netDifference = data.netDifference;
+      pvpState.capRestant = data.capRestant;
+      updatePvpStatus();
+
+      updatePlayerCards(data.playerCards, 1);
+      document.getElementById('bj-player-total').textContent = `Total : ${data.playerTotal}`;
+      await delay(400);
+
+      await renderEnded({
+        result: data.result,
+        playerCards: data.playerCards,
+        dealerCards: data.dealerCards,
+        dealerTotal: data.dealerTotal,
+        playerTotal: data.playerTotal,
+        creditsChange: data.creditsTransferred,
+        credits: data.attackerCredits
+      });
+      if (data.sessionClosed) {
+        document.getElementById('bj-pvp-status').textContent += ' — Cap atteint';
+        document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+      }
+    } catch (err) {
+      document.getElementById('bj-message').textContent = 'Erreur serveur';
+    }
+    return;
+  }
+
+  // ===== MODE NORMAL =====
   try {
     const res = await fetch(`${API_URL}/blackjack/double`, {
       method: 'POST',
@@ -748,6 +793,12 @@ function disablePvpMode() {
   document.getElementById('bj-pvp-panel').style.display = 'none';
   document.getElementById('bj-pvp-btn-activate').style.display = 'block';
   document.getElementById('bj-pvp-status').textContent = '';
+
+  // Réinitialiser l'état interne du panel pour la prochaine ouverture
+  document.getElementById('bj-pvp-target-select').style.display = 'block';
+  document.getElementById('bj-pvp-btn-start').style.display = 'block';
+  document.getElementById('bj-pvp-btn-quit').style.display = 'none';
+
   renderIdle();
 }
 

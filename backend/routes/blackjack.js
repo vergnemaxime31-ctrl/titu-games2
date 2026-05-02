@@ -38,8 +38,18 @@ function calculateTotal(cards) {
   return total;
 }
 
+function isNaturalBlackjack(cards) {
+  if (cards.length !== 2) return false;
+  const v1 = cards[0].slice(0, -1);
+  const v2 = cards[1].slice(0, -1);
+  const hasAce = (v1 === 'A' || v2 === 'A');
+  const hasTenValue = (['10','J','Q','K'].includes(v1) || ['10','J','Q','K'].includes(v2));
+  return hasAce && hasTenValue;
+}
+
+// Keep backward-compatible alias
 function checkBlackjack(cards) {
-  return cards.length === 2 && calculateTotal(cards) === 21;
+  return isNaturalBlackjack(cards);
 }
 
 function canSplit(cards) {
@@ -66,6 +76,10 @@ async function resolveSplit(game, res) {
   const resolveOneHand = (handCards) => {
     const total = calculateTotal(handCards);
     if (total > 21) return { result: 'lose', change: -game.bet };
+    // Blackjack naturel (As + figure en 2 cartes) = toujours payé 2.5x
+    if (isNaturalBlackjack(handCards)) {
+      return { result: 'blackjack', change: Math.floor(game.bet * 1.5) };
+    }
     if (dealerTotal > 21 || total > dealerTotal) return { result: 'win', change: game.bet };
     if (total === dealerTotal) return { result: 'push', change: 0 };
     return { result: 'lose', change: -game.bet };
@@ -129,17 +143,10 @@ router.post('/start', auth, async (req, res) => {
     let creditsChange = 0;
     user.credits -= bet;
 
-    const playerBJ = checkBlackjack(playerCards);
-    const dealerFullCards = [dealerCards[0], dealerHiddenCard];
-    const dealerBJ = checkBlackjack(dealerFullCards);
+    const playerBJ = isNaturalBlackjack(playerCards);
 
-    if (playerBJ && dealerBJ) {
-      // Les deux ont blackjack = push
-      result = 'push';
-      creditsChange = 0;
-      user.credits += bet; // rembourser la mise
-      user.notifications.push({ message: `Blackjack - Égalité ! (double blackjack)` });
-    } else if (playerBJ) {
+    if (playerBJ) {
+      // Blackjack naturel = toujours payé 2.5x la mise, peu importe le croupier
       result = 'blackjack';
       creditsChange = Math.floor(bet * 1.5);
       user.credits += bet + creditsChange;

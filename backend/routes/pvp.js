@@ -45,8 +45,17 @@ function calculateTotal(cards) {
   return total;
 }
 
+function isNaturalBlackjack(cards) {
+  if (cards.length !== 2) return false;
+  const v1 = cards[0].slice(0, -1);
+  const v2 = cards[1].slice(0, -1);
+  const hasAce = (v1 === 'A' || v2 === 'A');
+  const hasTenValue = (['10','J','Q','K'].includes(v1) || ['10','J','Q','K'].includes(v2));
+  return hasAce && hasTenValue;
+}
+
 function checkBlackjack(cards) {
-  return cards.length === 2 && calculateTotal(cards) === 21;
+  return isNaturalBlackjack(cards);
 }
 
 /**
@@ -73,15 +82,10 @@ async function resolveHand(pvpSession, session) {
   if (playerTotal > 21) {
     result = 'bust';
     creditsTransferred = -bet;
-  } else if (checkBlackjack(playerCards)) {
-    // Blackjack naturel
-    if (checkBlackjack(dealerCards)) {
-      result = 'push';
-      creditsTransferred = 0;
-    } else {
-      result = 'blackjack';
-      creditsTransferred = Math.floor(bet * 1.5);
-    }
+  } else if (isNaturalBlackjack(playerCards)) {
+    // Blackjack naturel = toujours payé 2.5x, peu importe le croupier
+    result = 'blackjack';
+    creditsTransferred = Math.floor(bet * 1.5);
   } else if (dealerTotal > 21) {
     result = 'win';
     creditsTransferred = bet;
@@ -228,7 +232,7 @@ router.post('/session/:id/deal', auth, async (req, res) => {
     const dealerCards = [dealerCard1, dealerHiddenCard];
 
     const playerTotal = calculateTotal(playerCards);
-    const isBlackjack = checkBlackjack(playerCards);
+    const isBlackjack = isNaturalBlackjack(playerCards);
 
     // Store hand state server-side
     pvpSession.currentHand = {
@@ -309,6 +313,55 @@ router.post('/session/:id/hit', auth, async (req, res) => {
     });
   } catch (err) {
     console.error('PVP HIT ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/pvp/session/:id/double — le joueur double sa mise, tire une carte, et la main se résout
+router.post('/session/:id/double', auth, async (req, res) => {
+  try {
+    const pvpSession = await PvpSession.findById(req.params.id);
+
+    if (!pvpSession) return res.status(404).json({ error: 'Session introuvable' });
+    if (String(pvpSession.attackerId) !== String(req.user.id)) return res.status(403).json({ error: 'Pas ta session' });
+    if (pvpSession.status === 'closed') return res.status(400).json({ error: 'Session fermée' });
+    if (!pvpSession.currentHand) return res.status(400).json({ error: 'Aucune main en cours' });
+    if (pvpSession.currentHand.phase !== 'playing') return res.status(400).json({ error: 'Main déjà terminée' });
+    if (pvpSession.currentHand.playerCards.length !== 2) return res.status(400).json({ error: 'Double uniquement sur 2 cartes' });
+
+    const hand = pvpSession.currentHand;
+    const currentBet = hand.bet;
+
+    // Vérifier que l'attaquant a assez de crédits pour doubler
+    const attacker = await User.findById(pvpSession.attackerId);
+    if (!attacker) return res.status(404).json({ error: 'Joueur introuvable' });
+    if (attacker.credits < currentBet) return res.status(400).json({ error: 'Crédits insuffisants pour doubler' });
+
+    // Vérifier que le double ne dépasse pas le cap restant
+    const capRestant = pvpSession.cap - Math.abs(pvpSession.netDifference);
+    if (currentBet * 2 > capRestant) return res.status(400).json({ error: `Double trop élevé pour le cap restant (${capRestant})` });
+
+    // Doubler la mise
+    pvpSession.currentHand.bet = currentBet * 2;
+
+    // Tirer une seule carte
+    const deck = [...hand.deck];
+    const playerCards = [...hand.playerCards];
+    playerCards.push(deck.pop());
+
+    pvpSession.currentHand.deck = deck;
+    pvpSession.currentHand.playerCards = playerCards;
+    pvpSession.markModified('currentHand');
+    await pvpSession.save();
+
+    // Résoudre la main (le joueur ne peut plus tirer après un double)
+    const result = await resolveHand(pvpSession);
+    res.json({
+      phase: 'ended',
+      ...result
+    });
+  } catch (err) {
+    console.error('PVP DOUBLE ERROR:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
