@@ -63,9 +63,19 @@ async function resolveSplit(game, res) {
   const deck = [...game.deck];
   const dealerCards = [...game.dealerCards];
   dealerCards[1] = game.dealerHiddenCard;
+  if (!dealerCards[1]) {
+    return res.status(500).json({ message: 'Erreur interne : carte cachée du dealer introuvable (split)' });
+  }
   let dealerTotal = calculateTotal(dealerCards);
   while (dealerTotal < 17) {
-    dealerCards.push(deck.pop());
+    if (deck.length === 0) {
+      return res.status(500).json({ message: 'Erreur interne : deck vide pendant le tirage du dealer (split)' });
+    }
+    const drawnCard = deck.pop();
+    if (!drawnCard) {
+      return res.status(500).json({ message: 'Erreur interne : carte tirée invalide pour le dealer (split)' });
+    }
+    dealerCards.push(drawnCard);
     dealerTotal = calculateTotal(dealerCards);
   }
   game.deck = deck;
@@ -133,10 +143,26 @@ router.post('/start', auth, async (req, res) => {
     if (!bet || bet <= 0) return res.status(400).json({ message: 'Mise invalide' });
     if (user.credits < bet) return res.status(400).json({ message: 'Crédits insuffisants' });
 
+    // Supprimer toute partie en cours pour ce joueur avant d'en créer une nouvelle
+    await BlackjackGame.deleteMany({ userId: req.user.id, result: 'ongoing' });
+
     const deck = createDeck();
+
+    // Vérifier que le deck est bien généré (6 decks = 312 cartes)
+    if (deck.length !== 312) {
+      return res.status(500).json({ message: 'Erreur interne : deck mal généré' });
+    }
+
     const playerCards = [deck.pop(), deck.pop()];
-    const dealerCards = [deck.pop(), '?'];
+    const dealerVisibleCard = deck.pop();
     const dealerHiddenCard = deck.pop();
+    const dealerCards = [dealerVisibleCard, '?'];
+
+    // Valider qu'aucune carte tirée n'est undefined
+    if (!playerCards[0] || !playerCards[1] || !dealerVisibleCard || !dealerHiddenCard) {
+      return res.status(500).json({ message: 'Erreur interne : carte tirée invalide (deck corrompu)' });
+    }
+
     const playerTotal = calculateTotal(playerCards);
 
     let result = 'ongoing';
@@ -162,7 +188,7 @@ router.post('/start', auth, async (req, res) => {
       dealerCards: [...dealerCards],
       dealerHiddenCard,
       playerTotal,
-      dealerTotal: getCardValue(dealerCards[0]),
+      dealerTotal: getCardValue(dealerVisibleCard),
       result,
       creditsChange,
       deck: [...deck],
@@ -186,6 +212,7 @@ router.post('/start', auth, async (req, res) => {
 
     // Si la main est terminée (blackjack), révéler les cartes du dealer
     if (result !== 'ongoing') {
+      const dealerFullCards = [dealerVisibleCard, dealerHiddenCard];
       response.dealerCards = dealerFullCards;
       response.dealerTotal = calculateTotal(dealerFullCards);
       response.creditsChange = creditsChange;
@@ -208,7 +235,13 @@ router.post('/hit', auth, async (req, res) => {
       return res.status(400).json({ message: 'Partie déjà terminée' });
 
     const deck = [...game.deck];
+    if (deck.length === 0) {
+      return res.status(500).json({ message: 'Erreur interne : deck vide, impossible de tirer une carte' });
+    }
     const newCard = deck.pop();
+    if (!newCard) {
+      return res.status(500).json({ message: 'Erreur interne : carte tirée invalide' });
+    }
     game.deck = deck;
     game.markModified('deck');
 
@@ -312,9 +345,19 @@ router.post('/stand', auth, async (req, res) => {
     const deck = [...game.deck];
     const dealerCards = [...game.dealerCards];
     dealerCards[1] = game.dealerHiddenCard;
+    if (!dealerCards[1]) {
+      return res.status(500).json({ message: 'Erreur interne : carte cachée du dealer introuvable' });
+    }
     let dealerTotal = calculateTotal(dealerCards);
     while (dealerTotal < 17) {
-      dealerCards.push(deck.pop());
+      if (deck.length === 0) {
+        return res.status(500).json({ message: 'Erreur interne : deck vide pendant le tirage du dealer' });
+      }
+      const drawnCard = deck.pop();
+      if (!drawnCard) {
+        return res.status(500).json({ message: 'Erreur interne : carte tirée invalide pour le dealer' });
+      }
+      dealerCards.push(drawnCard);
       dealerTotal = calculateTotal(dealerCards);
     }
 
@@ -369,7 +412,13 @@ router.post('/double', auth, async (req, res) => {
     const deck = [...game.deck];
 
     if (game.splitActive) {
+      if (deck.length === 0) {
+        return res.status(500).json({ message: 'Erreur interne : deck vide (double/split)' });
+      }
       const newCard = deck.pop();
+      if (!newCard) {
+        return res.status(500).json({ message: 'Erreur interne : carte tirée invalide (double/split)' });
+      }
       game.deck = deck;
       game.markModified('deck');
       user.credits -= game.bet;
@@ -411,7 +460,13 @@ router.post('/double', auth, async (req, res) => {
     await User.updateOne({ _id: req.user.id }, { $inc: { credits: -game.bet } });
     game.bet *= 2;
 
+    if (deck.length === 0) {
+      return res.status(500).json({ message: 'Erreur interne : deck vide (double)' });
+    }
     const newCard = deck.pop();
+    if (!newCard) {
+      return res.status(500).json({ message: 'Erreur interne : carte tirée invalide (double)' });
+    }
     const playerCards = [...game.playerCards, newCard];
     game.playerCards = playerCards;
     game.markModified('playerCards');
@@ -436,7 +491,17 @@ router.post('/double', auth, async (req, res) => {
     const dealerCards = [...game.dealerCards];
     dealerCards[1] = game.dealerHiddenCard;
     let dealerTotal = calculateTotal(dealerCards);
-    while (dealerTotal < 17) { dealerCards.push(deck.pop()); dealerTotal = calculateTotal(dealerCards); }
+    while (dealerTotal < 17) {
+      if (deck.length === 0) {
+        return res.status(500).json({ message: 'Erreur interne : deck vide pendant tirage dealer (double)' });
+      }
+      const drawnCard = deck.pop();
+      if (!drawnCard) {
+        return res.status(500).json({ message: 'Erreur interne : carte dealer invalide (double)' });
+      }
+      dealerCards.push(drawnCard);
+      dealerTotal = calculateTotal(dealerCards);
+    }
 
     game.deck = deck;
     game.dealerCards = dealerCards;
@@ -490,8 +555,16 @@ router.post('/split', auth, async (req, res) => {
     await user.save();
 
     const deck = [...game.deck];
-    const hand1Cards = [game.playerCards[0], deck.pop()];
-    const hand2Cards = [game.playerCards[1], deck.pop()];
+    if (deck.length < 2) {
+      return res.status(500).json({ message: 'Erreur interne : deck insuffisant pour le split' });
+    }
+    const card1 = deck.pop();
+    const card2 = deck.pop();
+    if (!card1 || !card2) {
+      return res.status(500).json({ message: 'Erreur interne : carte tirée invalide (split)' });
+    }
+    const hand1Cards = [game.playerCards[0], card1];
+    const hand2Cards = [game.playerCards[1], card2];
 
     game.splitActive = true;
     game.hand1Cards = [...hand1Cards];
