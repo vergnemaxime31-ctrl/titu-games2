@@ -13,23 +13,26 @@ function goTo(page) {
   if (page === 'challenges') loadChallenges();
   if (page === 'notifications') loadNotifications();
 }
- // ← goTo se ferme ici
 
 // ===== HOME CUSTOM BETS =====
 async function loadHomeCustomBets() {
   try {
     const token = localStorage.getItem('token');
+    if (!token) return;
     const res = await fetch(`${API_URL}/custom-bets`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
+    if (!res.ok) return;
     const data = await res.json();
     const container = document.getElementById('home-custom-bets');
+    if (!container) return;
     container.innerHTML = '';
 
-    data.slice(0, 3).forEach(bet => {
+    const bets = Array.isArray(data) ? data : [];
+    bets.slice(0, 3).forEach(bet => {
       container.innerHTML += `
         <div class="card">
-          <div style="font-size:15px; font-weight:500;">${bet.description}</div>
+          <div style="font-size:15px; font-weight:500;">${bet.question || bet.description || ''}</div>
           <div style="color:var(--text-secondary); margin-top:4px; font-size:14px;">
             Proposé par ${bet.creatorId?.username || '?'}
           </div>
@@ -37,7 +40,7 @@ async function loadHomeCustomBets() {
       `;
     });
 
-    if (data.length === 0) {
+    if (bets.length === 0) {
       container.innerHTML = '<p style="color:var(--text-secondary); text-align:center;">Aucun pari pour l\'instant</p>';
     }
   } catch (err) {
@@ -49,17 +52,21 @@ async function loadHomeCustomBets() {
 async function loadLeaderboard() {
   try {
     const token = localStorage.getItem('token');
+    if (!token) return;
     const res = await fetch(`${API_URL}/users/leaderboard`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
+    if (!res.ok) return;
     const data = await res.json();
 
     const table = document.querySelector('.ranking-table');
+    if (!table) return;
     const header = table.querySelector('.ranking-row.header');
     table.innerHTML = '';
-    table.appendChild(header);
+    if (header) table.appendChild(header);
 
-    data.slice(0, 3).forEach((user, index) => {
+    const users = Array.isArray(data) ? data : [];
+    users.slice(0, 3).forEach((user, index) => {
       const row = document.createElement('div');
       row.className = 'ranking-row';
       row.innerHTML = `
@@ -79,9 +86,10 @@ async function loadNotifBadge() {
   const token = localStorage.getItem('token');
   if (!token) return;
   try {
-    const res = await fetch('https://titu-games2.onrender.com/api/notifications', {
+    const res = await fetch(`${API_URL}/notifications`, {
       headers: { Authorization: 'Bearer ' + token }
     });
+    if (!res.ok) return;
     const data = await res.json();
     const badge = document.getElementById('notif-badge');
     if (badge && data.unreadCount > 0) {
@@ -97,12 +105,14 @@ async function checkAdmin() {
   const token = localStorage.getItem('token');
   if (!token) return;
   try {
-    const res = await fetch('https://titu-games2.onrender.com/api/users/me', {
+    const res = await fetch(`${API_URL}/users/me`, {
       headers: { Authorization: 'Bearer ' + token }
     });
+    if (!res.ok) return;
     const data = await res.json();
-    if (data.isAdmin) {
-      document.getElementById('nav-admin').style.display = 'flex';
+    if (data && data.isAdmin) {
+      const navAdmin = document.getElementById('nav-admin');
+      if (navAdmin) navAdmin.style.display = 'flex';
     }
   } catch (e) {}
 }

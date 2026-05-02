@@ -103,35 +103,93 @@ async function register() {
   }
 }
 
+// ===== HELPER: authenticated fetch with 401 handling =====
+async function authFetch(url, options = {}) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    logout();
+    return null;
+  }
+
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401) {
+    // Token expired or invalid — clear and redirect to login
+    logout();
+    return null;
+  }
+
+  return res;
+}
+
 // ===== ENTER APP =====
 async function enterApp(user) {
   document.querySelector('.username').textContent = user.username;
-  document.querySelector('.credits').textContent = '...';
+  document.querySelector('.credits').textContent = user.credits ? user.credits + ' crédits' : '...';
 
   document.getElementById('page-auth').classList.remove('active');
   document.getElementById('navbar').classList.remove('hidden');
   goTo('home');
 
-  loadNotifBadge();  // 👈 ajoute ici
-  checkAdmin();      // 👈 et ici
-
+  // Verify token is still valid by fetching fresh profile
   try {
     const token = localStorage.getItem('token');
+    if (!token) {
+      logout();
+      return;
+    }
+
     const res = await fetch(`${API_URL}/users/me`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        // Token expired or invalid
+        logout();
+        return;
+      }
+      // Other server errors — use cached data
+      console.warn('Profile fetch failed:', res.status);
+      document.querySelector('.credits').textContent = (user.credits ?? 0) + ' crédits';
+      return;
+    }
+
     const data = await res.json();
     console.log('profil:', data);
 
-    // data peut être l'objet directement ou dans data.user
-    const profile = data?.user ?? data;
-    const coins = profile?.coins ?? profile?.credits ?? user?.coins ?? user?.credits ?? 0;
-    document.querySelector('.credits').textContent = coins + ' crédits';
+    if (!data || (!data._id && !data.id && !data.username)) {
+      // Invalid response, use cached user data
+      document.querySelector('.credits').textContent = (user.credits ?? 0) + ' crédits';
+      return;
+    }
+
+    // data is the user object directly (from /api/users/me)
+    const profile = data;
+    const credits = profile.credits ?? user.credits ?? 0;
+    document.querySelector('.credits').textContent = credits + ' crédits';
+
+    // Update cached user with fresh data
+    localStorage.setItem('user', JSON.stringify({
+      id: profile._id || profile.id,
+      username: profile.username,
+      credits: profile.credits
+    }));
+
   } catch(e) {
-    console.error(e);
-    document.querySelector('.credits').textContent = '0 crédits';
+    console.error('Profile fetch error:', e);
+    // Network error (server cold start) — use cached data, don't logout
+    document.querySelector('.credits').textContent = (user.credits ?? 0) + ' crédits';
   }
 
+  loadNotifBadge();
+  checkAdmin();
   loadLeaderboard();
 }
 
@@ -149,11 +207,26 @@ function logout() {
 // ===== AUTO LOGIN =====
 window.addEventListener('load', () => {
   const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (token && user) {
+  const userStr = localStorage.getItem('user');
+
+  if (!token || !userStr) {
+    // No stored session — show login
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    document.getElementById('navbar').classList.add('hidden');
+    return;
+  }
+
+  try {
+    const user = JSON.parse(userStr);
+    if (!user || !user.username) {
+      throw new Error('Invalid cached user');
+    }
     enterApp(user);
-  } else {
-    // S'assurer que la navbar est cachée
+  } catch(e) {
+    // Corrupted localStorage data
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     document.getElementById('navbar').classList.add('hidden');
   }
 });
