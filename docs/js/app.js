@@ -97,7 +97,7 @@ async function checkAdmin() {
   const token = localStorage.getItem('token');
   if (!token) return;
   try {
-    const res = await fetch('https://titu-games2.onrender.com/api/app/me', {
+    const res = await fetch('https://titu-games2.onrender.com/api/users/me', {
       headers: { Authorization: 'Bearer ' + token }
     });
     const data = await res.json();
