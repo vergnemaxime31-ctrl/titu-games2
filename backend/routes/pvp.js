@@ -3,8 +3,6 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const PvpSession = require('../models/PvpSession');
-const mongoose = require('mongoose');
-const Notification = require('../models/Notification');
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
@@ -474,13 +472,5 @@ router.get('/notifications', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-// Après avoir calculé le résultat de l'attaque :
-await Notification.create({
-  userId: defenderId,
-  message: `${attackerName} vous a attaqué et ${result === 'win' ? 'a gagné' : 'a perdu'}. ${creditsTransferred} crédits ${result === 'win' ? 'vous ont été retirés' : 'tentés'}.`
-});
-
-await trackProgress(userId, 'pvp_wins', 1);
 
 module.exports = router;
