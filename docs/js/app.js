@@ -12,6 +12,9 @@ function goTo(page) {
   if (page === 'shop') loadShop();
   if (page === 'challenges') loadChallenges();
   if (page === 'notifications') loadNotifications();
+  if (page === 'sports') initSports();
+  if (page === 'custom') initCustom();
+  if (page === 'top') loadLeaderboardPage();
 }
 
 // ===== HOME CUSTOM BETS =====

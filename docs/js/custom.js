@@ -41,6 +41,7 @@ async function updateCustomCredits() {
 // ─────────────────────────────────────────
 async function loadOpenBets() {
   const container = document.getElementById('custom-open-list');
+  if (!container) return;
   container.innerHTML = '<p class="no-data">Chargement...</p>';
 
   try {
@@ -49,7 +50,9 @@ async function loadOpenBets() {
     const res = await fetch(`${API_URL}/custom-bets`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-    const bets = await res.json();
+    if (!res.ok) throw new Error('Erreur ' + res.status);
+    const data = await res.json();
+    const bets = Array.isArray(data) ? data : [];
 
     if (!bets.length) {
       container.innerHTML = '<p class="no-data">Aucun pari disponible</p>';
@@ -111,6 +114,7 @@ async function loadOpenBets() {
 // ─────────────────────────────────────────
 async function loadMyBets() {
   const container = document.getElementById('custom-my-list');
+  if (!container) return;
   container.innerHTML = '<p class="no-data">Chargement...</p>';
 
   try {
@@ -119,7 +123,9 @@ async function loadMyBets() {
     const res = await fetch(`${API_URL}/custom-bets/mine`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-    const bets = await res.json();
+    if (!res.ok) throw new Error('Erreur ' + res.status);
+    const data = await res.json();
+    const bets = Array.isArray(data) ? data : [];
 
     if (!bets.length) {
       container.innerHTML = '<p class="no-data">Aucun pari</p>';

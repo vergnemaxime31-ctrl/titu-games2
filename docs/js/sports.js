@@ -29,22 +29,32 @@ function initSports() {
 
 async function loadSportsCredits() {
   const token = localStorage.getItem('token');
+  if (!token) return;
   try {
     const res = await fetch(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur ' + res.status);
     const data = await res.json();
     const el = document.getElementById('sports-credits');
     if (el) el.textContent = data.credits ?? '—';
-  } catch {}
+  } catch (e) {
+    // Fallback to cached user credits
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const el = document.getElementById('sports-credits');
+    if (el) el.textContent = user.credits ?? '—';
+  }
 }
 
 async function loadMatches() {
   const token = localStorage.getItem('token');
   const matchesList = document.getElementById('matches-list');
+  if (!matchesList) return;
   try {
     const res = await fetch(`${API_URL}/sports/matches`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur ' + res.status);
     const matches = await res.json();
-    if (!matches.length) { matchesList.innerHTML = '<p class="no-data">Aucun match disponible</p>'; return; }
-    matchesList.innerHTML = matches.map(m => `
+    const list = Array.isArray(matches) ? matches : [];
+    if (!list.length) { matchesList.innerHTML = '<p class="no-data">Aucun match disponible</p>'; return; }
+    matchesList.innerHTML = list.map(m => `
       <div class="match-card">
         <div class="match-header">
           <span class="league">${formatLeague(m.league)}</span>
@@ -72,7 +82,8 @@ async function loadMatches() {
         </div>
       </div>
     `).join('');
-  } catch {
+  } catch (e) {
+    console.error('Erreur chargement matchs:', e);
     matchesList.innerHTML = '<p class="no-data">Erreur de chargement</p>';
   }
 }
@@ -121,11 +132,14 @@ async function confirmBet() {
 async function loadBets() {
   const token = localStorage.getItem('token');
   const betsList = document.getElementById('bets-list');
+  if (!betsList) return;
   try {
     const res = await fetch(`${API_URL}/sports/bets`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur ' + res.status);
     const bets = await res.json();
-    if (!bets.length) { betsList.innerHTML = '<p class="no-data">Aucun pari</p>'; return; }
-    betsList.innerHTML = bets.map(b => {
+    const list = Array.isArray(bets) ? bets : [];
+    if (!list.length) { betsList.innerHTML = '<p class="no-data">Aucun pari</p>'; return; }
+    betsList.innerHTML = list.map(b => {
       const match = b.matchId;
       const statusClass = b.status === 'won' ? 'won' : b.status === 'lost' ? 'lost' : 'pending';
       const statusLabel = b.status === 'won' ? '✅ Gagné' : b.status === 'lost' ? '❌ Perdu' : '⏳ En attente';
@@ -147,7 +161,10 @@ async function loadBets() {
           </div>
         </div>`;
     }).join('');
-  } catch {}
+  } catch (e) {
+    console.error('Erreur chargement paris:', e);
+    betsList.innerHTML = '<p class="no-data">Erreur de chargement</p>';
+  }
 }
 
 function formatLeague(slug) {
