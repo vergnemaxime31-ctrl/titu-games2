@@ -22,11 +22,15 @@ router.get('/leaderboard', auth, async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
-    res.json(user);
+    res.json({
+      ...user.toObject(),
+      isAdmin: user.role === 'admin'
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 router.get('/stats/bets-count', auth, async (req, res) => {
   try {
