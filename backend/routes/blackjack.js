@@ -602,4 +602,7 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
+const { trackProgress } = require('../services/challengeService');
+await trackProgress(userId, 'blackjack_wins', 1);
+
 module.exports = router;

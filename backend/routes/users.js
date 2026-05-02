@@ -8,9 +8,9 @@ const auth = require('../middleware/auth');
 // GET /api/users/leaderboard
 router.get('/leaderboard', auth, async (req, res) => {
   try {
-    const users = await User.find()
-      .select('username credits')
-      .sort({ credits: -1 })
+    const users = await User.find({})
+      .select('username credits level')
+      .sort({ level: -1, credits: -1 })
       .limit(10);
     res.json(users);
   } catch (err) {

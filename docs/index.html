@@ -312,6 +312,110 @@
   </div>
 </div>
 
+<!-- ===== PAGE: PROGRESSION ===== -->
+<div class="page" id="page-progression">
+  <div class="page-header">
+    <h1>Progression</h1>
+  </div>
+
+  <div class="stats-card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Niveau actuel</span>
+      <span id="prog-level" style="font-size:2em; font-weight:700; color:gold;">—</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+      <span>Crédits</span>
+      <span id="prog-credits" style="font-weight:600;">—</span>
+    </div>
+  </div>
+
+  <div class="stats-card">
+    <h3>Monter de niveau</h3>
+    <p style="color:var(--text-secondary); font-size:14px;">Coût : <strong id="prog-cost" style="color:gold;">—</strong> crédits</p>
+    <p style="color:var(--text-muted); font-size:12px; margin-bottom:12px;">Ces crédits sont dépensés définitivement.</p>
+    <button id="btn-levelup" onclick="levelUp()" class="btn btn-primary" style="width:100%;">Acheter le niveau suivant</button>
+    <p id="levelup-msg" style="text-align:center; margin-top:8px; font-size:13px;"></p>
+  </div>
+
+  <div class="stats-card">
+    <h3>Revenu quotidien</h3>
+    <p style="color:var(--text-secondary); font-size:14px;">Montant : <strong id="prog-daily" style="color:gold;">—</strong> crédits</p>
+    <button id="btn-daily" onclick="claimDaily()" class="btn btn-success" style="width:100%; margin-top:8px;">Réclamer</button>
+    <p id="daily-msg" style="text-align:center; margin-top:8px; font-size:13px;"></p>
+  </div>
+</div>
+
+<!-- ===== PAGE: SHOP ===== -->
+<div class="page" id="page-shop">
+  <div class="page-header">
+    <h1>Boutique</h1>
+  </div>
+
+  <div class="section-title">Votre inventaire</div>
+  <div id="inventory-list"><p class="no-data">Chargement...</p></div>
+
+  <div class="section-title">Items disponibles</div>
+  <div id="shop-list"><p class="no-data">Chargement...</p></div>
+</div>
+
+<!-- ===== PAGE: CHALLENGES ===== -->
+<div class="page" id="page-challenges">
+  <div class="page-header">
+    <h1>Défis de la semaine</h1>
+  </div>
+  <div id="challenges-list"><p class="no-data">Chargement...</p></div>
+</div>
+
+<!-- ===== PAGE: NOTIFICATIONS ===== -->
+<div class="page" id="page-notifications">
+  <div class="page-header">
+    <h1>Notifications</h1>
+  </div>
+  <button class="btn btn-secondary" onclick="markAllRead()" style="width:100%; margin-bottom:16px;">Tout marquer comme lu</button>
+  <div id="notif-list"><p class="no-data">Chargement...</p></div>
+</div>
+
+<!-- ===== PAGE: ADMIN ===== -->
+<div class="page" id="page-admin">
+  <div class="page-header">
+    <h1>Panel Admin</h1>
+  </div>
+
+  <div class="stats-card">
+    <h3>Créer un défi</h3>
+    <input type="text" id="c-title" placeholder="Titre" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <input type="text" id="c-desc" placeholder="Description" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <select id="c-type" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;">
+      <option value="blackjack_wins">Victoires Blackjack</option>
+      <option value="sports_wins">Victoires Paris Sportifs</option>
+      <option value="pvp_wins">Victoires PvP</option>
+      <option value="level_up">Monter de niveau</option>
+    </select>
+    <input type="number" id="c-target" placeholder="Objectif (ex: 5)" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <input type="number" id="c-reward-credits" placeholder="Récompense crédits (0 si aucun)" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <input type="text" id="c-reward-item" placeholder="Récompense item (ex: shield_24h)" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <input type="date" id="c-week-start" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <input type="date" id="c-week-end" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <button onclick="createChallenge()" class="btn btn-primary" style="width:100%;">Créer le défi</button>
+    <p id="create-msg" style="text-align:center; margin-top:8px; font-size:13px;"></p>
+  </div>
+
+  <div class="stats-card">
+    <h3>Ajouter un item en boutique</h3>
+    <input type="text" id="s-name" placeholder="Nom" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <input type="text" id="s-desc" placeholder="Description" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <select id="s-effect" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;">
+      <option value="attack_boost">Attaque boostée 20%</option>
+      <option value="shield_24h">Bouclier 24h</option>
+      <option value="double_daily">Doubler revenu demain</option>
+    </select>
+    <input type="number" id="s-price" placeholder="Prix en crédits" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <button onclick="createShopItem()" class="btn btn-primary" style="width:100%;">Ajouter à la boutique</button>
+    <p id="shop-create-msg" style="text-align:center; margin-top:8px; font-size:13px;"></p>
+  </div>
+</div>
+
+
 <!-- ===== NAVBAR ===== -->
 <nav id="navbar" class="navbar hidden">
   <div class="nav-item active" id="nav-home" onclick="goTo('home')">
@@ -334,7 +438,28 @@
     <span class="nav-icon">🏆</span>
     <span>Top</span>
   </div>
+  <div class="nav-item" id="nav-progression" onclick="goTo('progression')">
+    <span class="nav-icon">📈</span>
+    <span>Niveaux</span>
+  </div>
+  <div class="nav-item" id="nav-shop" onclick="goTo('shop')">
+    <span class="nav-icon">🛒</span>
+    <span>Shop</span>
+  </div>
+  <div class="nav-item" id="nav-challenges" onclick="goTo('challenges')">
+    <span class="nav-icon">🎯</span>
+    <span>Défis</span>
+  </div>
+  <div class="nav-item" id="nav-notifications" onclick="goTo('notifications')">
+    <span class="nav-icon">🔔</span>
+    <span>Notifs <span id="notif-badge" style="display:none; background:red; color:white; border-radius:50%; padding:1px 5px; font-size:10px;"></span></span>
+  </div>
+  <div class="nav-item" id="nav-admin" onclick="goTo('admin')" style="display:none;">
+    <span class="nav-icon">⚙️</span>
+    <span>Admin</span>
+  </div>
 </nav>
+
 
 </div><!-- fin #app -->
 
@@ -343,6 +468,11 @@
 <script src="js/sports.js"></script>
 <script src="js/custom.js"></script>
 <script src="js/top.js"></script>
+<script src="js/progression.js"></script>
+<script src="js/shop.js"></script>
+<script src="js/challenges.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/admin.js"></script>
 <script src="js/app.js"></script>
 <script>
   // Odds selector

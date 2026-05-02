@@ -32,7 +32,22 @@ const UserSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  level: { type: Number, default: 1 },
+  lastDailyReward: { type: Date, default: null },
+  inventory: [
+    {
+      itemId: { type: String },
+      name: { type: String },
+      effect: { type: String },
+      quantity: { type: Number, default: 1 }
+    }
+  ],
+  shieldUntil: { type: Date, default: null },
+  doubleDailyUntil: { type: Date, default: null },
+  attackBoostUntil: { type: Date, default: null }
+
 });
+
 
 module.exports = mongoose.model('User', UserSchema);

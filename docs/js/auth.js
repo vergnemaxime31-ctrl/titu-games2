@@ -112,6 +112,9 @@ async function enterApp(user) {
   document.getElementById('navbar').classList.remove('hidden');
   goTo('home');
 
+  loadNotifBadge();  // 👈 ajoute ici
+  checkAdmin();      // 👈 et ici
+
   try {
     const token = localStorage.getItem('token');
     const res = await fetch(`${API_URL}/users/me`, {

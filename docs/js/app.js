@@ -1,20 +1,19 @@
 // ===== NAVIGATION =====
 function goTo(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-
-  const target = document.getElementById('page-' + page);
-  if (target) target.classList.add('active');
-
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  document.getElementById('page-' + page).classList.add('active');
   const navItem = document.getElementById('nav-' + page);
   if (navItem) navItem.classList.add('active');
 
-  if (page === 'top') loadLeaderboardPage();
-  if (page === 'blackjack') initBlackjack();
-  if (page === 'sports') initSports();
-  if (page === 'custom') initCustom();
-  if (page === 'home') loadHomeCustomBets();
-}  // ← goTo se ferme ici
+  // Charger les données selon la page
+  if (page === 'progression') loadProgression();
+  if (page === 'shop') loadShop();
+  if (page === 'challenges') loadChallenges();
+  if (page === 'notifications') loadNotifications();
+}
+ // ← goTo se ferme ici
 
 // ===== HOME CUSTOM BETS =====
 async function loadHomeCustomBets() {
@@ -74,4 +73,36 @@ async function loadLeaderboard() {
   } catch (err) {
     console.error('Erreur leaderboard:', err);
   }
+}
+
+async function loadNotifBadge() {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  try {
+    const res = await fetch('https://titu-games2.onrender.com/api/notifications', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const data = await res.json();
+    const badge = document.getElementById('notif-badge');
+    if (badge && data.unreadCount > 0) {
+      badge.textContent = data.unreadCount;
+      badge.style.display = 'inline';
+    } else if (badge) {
+      badge.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+async function checkAdmin() {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  try {
+    const res = await fetch('https://titu-games2.onrender.com/api/auth/me', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const data = await res.json();
+    if (data.isAdmin) {
+      document.getElementById('nav-admin').style.display = 'flex';
+    }
+  } catch (e) {}
 }

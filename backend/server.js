@@ -20,6 +20,14 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/sports', require('./routes/sports'));
 app.use('/api/custom-bets', require('./routes/customBets'));
 const pvpRoutes = require('./routes/pvp');
+const progressionRoutes = require('./routes/progression');
+app.use('/api/progression', progressionRoutes);
+const notificationRoutes = require('./routes/notifications');
+app.use('/api/notifications', notificationRoutes);
+const shopRoutes = require('./routes/shop');
+app.use('/api/shop', shopRoutes);
+const challengeRoutes = require('./routes/challenges');
+app.use('/api/challenges', challengeRoutes);
 app.use('/api/pvp', pvpRoutes);
 
 
@@ -32,3 +40,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Serveur lancé sur le port ${PORT}`));
 
 app.use(express.static('frontend'));
+
