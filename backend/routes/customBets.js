@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const CustomBet = require('../models/CustomBet');
 const CustomBetVote = require('../models/CustomBetVote');
 const User = require('../models/User');
+const { notifyNewCustomBet, notifyBetResult } = require('../services/notificationService');
 
 // ─────────────────────────────────────────
 // POST /api/custom-bets — Créer un pari
@@ -37,6 +38,9 @@ router.post('/', auth, async (req, res) => {
       opponentAmount: Math.round(creatorAmount * odds),
       expiresAt: new Date(expiresAt)
     });
+
+    // Notify all users about new custom bet
+    notifyNewCustomBet({ betTitle: question, betId: bet._id, creatorName: user.username }).catch(() => {});
 
     res.json({ message: 'Pari créé !', bet, credits: user.credits });
   } catch (err) {
@@ -206,21 +210,18 @@ async function resolveBet(bet, result) {
   const totalPot = bet.creatorAmount + bet.opponentAmount;
   const winnerId = result === 'creator_wins' ? bet.creatorId : bet.acceptedBy;
   const loserId = result === 'creator_wins' ? bet.acceptedBy : bet.creatorId;
+  const loserAmount = result === 'creator_wins' ? bet.opponentAmount : bet.creatorAmount;
 
   const winner = await User.findById(winnerId);
   const loser = await User.findById(loserId);
 
   winner.credits += totalPot;
-  winner.notifications.push({
-    message: `🏆 Vous avez gagné le pari "${bet.question}" ! +${totalPot} crédits`
-  });
-
-  loser.notifications.push({
-    message: `❌ Vous avez perdu le pari "${bet.question}" (-${result === 'creator_wins' ? bet.opponentAmount : bet.creatorAmount} crédits)`
-  });
-
   await winner.save();
   await loser.save();
+
+  // Notify via notification service
+  notifyBetResult({ userId: winnerId, betTitle: bet.question, won: true, amount: totalPot }).catch(() => {});
+  notifyBetResult({ userId: loserId, betTitle: bet.question, won: false, amount: loserAmount }).catch(() => {});
 }
 
 module.exports = router;

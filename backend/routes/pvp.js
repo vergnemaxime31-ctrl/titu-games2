@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const PvpSession = require('../models/PvpSession');
+const { notifyBlackjackAttack, notifyBlackjackDefended } = require('../services/notificationService');
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
@@ -137,13 +138,22 @@ async function resolveHand(pvpSession, session) {
   pvpSession.markModified('currentHand');
   await pvpSession.save();
 
-  // Notification to target
-  const notifMessage = creditsTransferred > 0
-    ? `⚔️ ${attacker.username} t'a attaqué et t'a pris ${creditsTransferred} crédits !`
-    : creditsTransferred < 0
-      ? `⚔️ ${attacker.username} t'a attaqué mais a perdu ${Math.abs(creditsTransferred)} crédits !`
-      : `⚔️ ${attacker.username} t'a attaqué, égalité !`;
-  await User.updateOne({ _id: pvpSession.targetId }, { $push: { notifications: { message: notifMessage } } });
+  // Notification to target via notification service
+  if (creditsTransferred > 0) {
+    await notifyBlackjackAttack({
+      victimId: pvpSession.targetId,
+      attackerId: pvpSession.attackerId,
+      attackerName: attacker.username,
+      amount: creditsTransferred
+    });
+  } else if (creditsTransferred < 0) {
+    await notifyBlackjackDefended({
+      victimId: pvpSession.targetId,
+      attackerId: pvpSession.attackerId,
+      attackerName: attacker.username,
+      amount: Math.abs(creditsTransferred)
+    });
+  }
 
   // Reload attacker credits for response
   const updatedAttacker = await User.findById(pvpSession.attackerId).select('credits');

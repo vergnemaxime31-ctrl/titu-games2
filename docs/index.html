@@ -47,7 +47,9 @@
       <div class="username">Jean</div>
       <div class="credits">1250 crédits</div>
     </div>
-    <div class="bell-icon">🔔</div>
+    <button id="notif-bell" onclick="toggleNotifPanel()" style="position:relative; background:none; border:none; font-size:24px; cursor:pointer; padding:8px;">
+      🔔 <span id="notif-badge" class="notif-badge hidden">0</span>
+    </button>
   </div>
 
   <div class="section-title">Jeux</div>
@@ -366,13 +368,17 @@
   <div id="challenges-list"><p class="no-data">Chargement...</p></div>
 </div>
 
-<!-- ===== PAGE: NOTIFICATIONS ===== -->
-<div class="page" id="page-notifications">
-  <div class="page-header">
-    <h1>Notifications</h1>
+<!-- ===== NOTIFICATION PANEL (slide-in) ===== -->
+<div id="notif-overlay" class="notif-overlay hidden" onclick="closeNotifPanel()"></div>
+<div id="notif-panel" class="notif-panel hidden">
+  <div class="notif-panel-header">
+    <h3>Notifications</h3>
+    <div>
+      <button onclick="markAllRead()" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">Tout lu</button>
+      <button onclick="closeNotifPanel()" style="background:none; border:none; color:var(--text-primary); font-size:20px; cursor:pointer; padding:6px 10px;">✕</button>
+    </div>
   </div>
-  <button class="btn btn-secondary" onclick="markAllRead()" style="width:100%; margin-bottom:16px;">Tout marquer comme lu</button>
-  <div id="notif-list"><p class="no-data">Chargement...</p></div>
+  <div id="notif-list"></div>
 </div>
 
 <!-- ===== PAGE: ADMIN ===== -->
@@ -398,6 +404,14 @@
     <input type="date" id="c-week-end" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
     <button onclick="createChallenge()" class="btn btn-primary" style="width:100%;">Créer le défi</button>
     <p id="create-msg" style="text-align:center; margin-top:8px; font-size:13px;"></p>
+  </div>
+
+  <div class="stats-card">
+    <h3>Faire une annonce</h3>
+    <input type="text" id="announce-title" placeholder="Titre de l'annonce" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px;" />
+    <textarea id="announce-message" placeholder="Message..." rows="3" style="width:100%; padding:12px; background:var(--bg-button); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); margin-bottom:8px; resize:vertical;"></textarea>
+    <button onclick="sendAnnouncement()" class="btn btn-primary" style="width:100%;">Envoyer à tous</button>
+    <p id="announce-msg" style="text-align:center; margin-top:8px; font-size:13px;"></p>
   </div>
 
   <div class="stats-card">
@@ -450,10 +464,7 @@
     <span class="nav-icon">🎯</span>
     <span>Défis</span>
   </div>
-  <div class="nav-item" id="nav-notifications" onclick="goTo('notifications')">
-    <span class="nav-icon">🔔</span>
-    <span>Notifs <span id="notif-badge" style="display:none; background:red; color:white; border-radius:50%; padding:1px 5px; font-size:10px;"></span></span>
-  </div>
+
   <div class="nav-item" id="nav-admin" onclick="goTo('admin')" style="display:none;">
     <span class="nav-icon">⚙️</span>
     <span>Admin</span>

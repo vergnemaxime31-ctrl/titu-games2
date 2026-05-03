@@ -29,6 +29,8 @@ app.use('/api/shop', shopRoutes);
 const challengeRoutes = require('./routes/challenges');
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/pvp', pvpRoutes);
+const adminRoutes = require('./routes/admin');
+app.use('/api/admin', adminRoutes);
 
 
 // Connexion MongoDB

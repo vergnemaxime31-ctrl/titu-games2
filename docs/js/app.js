@@ -3,15 +3,18 @@ function goTo(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-  document.getElementById('page-' + page).classList.add('active');
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
   const navItem = document.getElementById('nav-' + page);
   if (navItem) navItem.classList.add('active');
+
+  // Close notification panel when navigating
+  closeNotifPanel();
 
   // Charger les données selon la page
   if (page === 'progression') loadProgression();
   if (page === 'shop') loadShop();
   if (page === 'challenges') loadChallenges();
-  if (page === 'notifications') loadNotifications();
   if (page === 'sports') initSports();
   if (page === 'custom') initCustom();
   if (page === 'top') loadLeaderboardPage();
@@ -83,25 +86,6 @@ async function loadLeaderboard() {
   } catch (err) {
     console.error('Erreur leaderboard:', err);
   }
-}
-
-async function loadNotifBadge() {
-  const token = localStorage.getItem('token');
-  if (!token) return;
-  try {
-    const res = await fetch(`${API_URL}/notifications`, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const badge = document.getElementById('notif-badge');
-    if (badge && data.unreadCount > 0) {
-      badge.textContent = data.unreadCount;
-      badge.style.display = 'inline';
-    } else if (badge) {
-      badge.style.display = 'none';
-    }
-  } catch (e) {}
 }
 
 async function checkAdmin() {
